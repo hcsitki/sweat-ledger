@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.huntersitki.sweatledger"
     },
     "android": {
       "adaptiveIcon": {
@@ -44,6 +45,13 @@
         "expo-notifications",
         {
           "iosDisplayInForeground": true
+        }
+      ],
+      [
+        "react-native-health",
+        {
+          "healthSharePermission": "Sweat Ledger reads your weight and body fat percentage to calculate calorie estimates.",
+          "healthUpdatePermission": "Sweat Ledger saves your workouts to Apple Health."
         }
       ]
     ],

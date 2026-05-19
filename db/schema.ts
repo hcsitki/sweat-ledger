@@ -228,6 +228,10 @@ export async function migrateDb(db: SQLiteDatabase) {
   if (version < 3) {
     await migrateToV3(db);
   }
+
+  if (version < 4) {
+    await migrateToV4(db);
+  }
 }
 
 async function migrateToV3(db: SQLiteDatabase) {
@@ -255,6 +259,13 @@ async function migrateToV3(db: SQLiteDatabase) {
   `);
 
   await db.execAsync('PRAGMA user_version = 3');
+}
+
+async function migrateToV4(db: SQLiteDatabase) {
+  await db.execAsync(
+    'ALTER TABLE workout_sessions ADD COLUMN calories_burned INTEGER'
+  );
+  await db.execAsync('PRAGMA user_version = 4');
 }
 
 async function migrateToV2(db: SQLiteDatabase) {

@@ -23,6 +23,7 @@ export interface WorkoutSession {
   started_at: number;
   finished_at: number | null;
   duration_seconds: number | null;
+  calories_burned: number | null;
 }
 
 export interface WorkoutExercise {

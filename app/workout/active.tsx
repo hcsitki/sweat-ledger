@@ -12,7 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useWorkoutStore } from '@/store/workout';
-import { finishWorkoutSession, cancelWorkoutSession, updateSessionName } from '@/db/queries/workouts';
+import { finishWorkoutSession, cancelWorkoutSession, updateSessionName, saveSessionCalories } from '@/db/queries/workouts';
+import { initHealthKit, getLatestWeight, estimateCalories, writeStrengthWorkout } from '@/services/health';
 import { deleteWorkoutExercise } from '@/db/queries/sets';
 import { ExerciseCard } from '@/components/workout/ExerciseCard';
 import { WorkoutTimer } from '@/components/workout/WorkoutTimer';
@@ -50,11 +51,31 @@ export default function ActiveWorkoutScreen() {
         text: 'Finish',
         onPress: async () => {
           if (sessionId == null || startedAt == null) return;
+          const finishedAt = Date.now();
           const durationSeconds = getElapsedSeconds(startedAt);
-          await finishWorkoutSession(db, sessionId, durationSeconds);
+          await finishWorkoutSession(db, sessionId, durationSeconds, finishedAt);
           const finishedSessionId = sessionId;
           clearWorkout();
           router.replace(`/(tabs)?justFinished=${finishedSessionId}`);
+
+          // Fire-and-forget: write to Apple Health and persist calories
+          const capturedDb = db;
+          (async () => {
+            try {
+              const ok = await initHealthKit();
+              if (!ok) return;
+              const weightLbs = await getLatestWeight();
+              const calories = weightLbs != null
+                ? estimateCalories(durationSeconds, weightLbs)
+                : null;
+              if (calories != null) {
+                await saveSessionCalories(capturedDb, finishedSessionId, calories);
+              }
+              await writeStrengthWorkout(startedAt, finishedAt, durationSeconds, calories);
+            } catch (e) {
+              if (__DEV__) console.warn('HealthKit write failed:', e);
+            }
+          })();
         },
       },
     ]);

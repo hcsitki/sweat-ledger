@@ -28,12 +28,25 @@ export async function updateSessionName(db: SQLiteDatabase, id: number, name: st
 export async function finishWorkoutSession(
   db: SQLiteDatabase,
   id: number,
-  durationSeconds: number
+  durationSeconds: number,
+  finishedAt: number
 ): Promise<void> {
   await db.runAsync(
     "UPDATE workout_sessions SET status = 'completed', finished_at = ?, duration_seconds = ? WHERE id = ?",
-    Date.now(),
+    finishedAt,
     durationSeconds,
+    id
+  );
+}
+
+export async function saveSessionCalories(
+  db: SQLiteDatabase,
+  id: number,
+  calories: number
+): Promise<void> {
+  await db.runAsync(
+    'UPDATE workout_sessions SET calories_burned = ? WHERE id = ?',
+    calories,
     id
   );
 }

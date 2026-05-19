@@ -45,7 +45,7 @@ describe('getActiveSession', () => {
 
 describe('finishWorkoutSession', () => {
   it("sets status to 'completed' with duration and timestamp", async () => {
-    await finishWorkoutSession(mockDb, 5, 3600);
+    await finishWorkoutSession(mockDb, 5, 3600, 1700000000000);
     expect(mockDb.runAsync).toHaveBeenCalledWith(
       expect.stringContaining("status = 'completed'"),
       expect.any(Number),
