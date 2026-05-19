@@ -1,5 +1,22 @@
 {
   "enabledPlugins": {
     "expo@claude-plugins-official": true
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsc --noEmit && npx expo lint",
+            "shell": "bash",
+            "if": "Bash(git commit*)",
+            "timeout": 120,
+            "statusMessage": "Running TypeScript and lint checks..."
+          }
+        ]
+      }
+    ]
   }
 }
