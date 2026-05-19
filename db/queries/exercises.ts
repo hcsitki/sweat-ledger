@@ -1,5 +1,6 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
-import { type Exercise, type ExerciseStats } from '../types';
+import { type Exercise, type ExerciseStats, type ExerciseHistorySession, type ExerciseHistorySet } from '../types';
+import { calculateEpley1RM } from '@/utils/calculations';
 
 interface ExerciseFilters {
   muscleGroup?: string;
@@ -134,6 +135,73 @@ export async function updateCustomExercise(
 
 export async function deleteCustomExercise(db: SQLiteDatabase, id: number): Promise<void> {
   await db.runAsync('DELETE FROM exercises WHERE id = ? AND is_custom = 1', id);
+}
+
+export async function getExercisePerformanceHistory(
+  db: SQLiteDatabase,
+  exerciseId: number
+): Promise<ExerciseHistorySession[]> {
+  const rows = await db.getAllAsync<{
+    workout_exercise_id: number;
+    session_id: number;
+    session_name: string;
+    started_at: number;
+    set_id: number;
+    set_number: number;
+    weight_lbs: number | null;
+    reps: number | null;
+    notes: string | null;
+  }>(
+    `SELECT
+       we.id AS workout_exercise_id,
+       ws.id AS session_id,
+       ws.name AS session_name,
+       ws.started_at,
+       s.id AS set_id,
+       s.set_number,
+       s.weight_lbs,
+       s.reps,
+       s.notes
+     FROM workout_sessions ws
+     JOIN workout_exercises we ON we.session_id = ws.id
+     JOIN sets s ON s.workout_exercise_id = we.id
+     WHERE we.exercise_id = ?
+       AND ws.status = 'completed'
+     ORDER BY ws.started_at ASC, we.id ASC, s.set_number ASC`,
+    exerciseId
+  );
+
+  const sessionMap = new Map<number, ExerciseHistorySession>();
+  for (const row of rows) {
+    if (!sessionMap.has(row.workout_exercise_id)) {
+      sessionMap.set(row.workout_exercise_id, {
+        workout_exercise_id: row.workout_exercise_id,
+        session_id: row.session_id,
+        session_name: row.session_name,
+        started_at: row.started_at,
+        session_1rm: null,
+        sets: [],
+      });
+    }
+    const session = sessionMap.get(row.workout_exercise_id)!;
+    const set: ExerciseHistorySet = {
+      id: row.set_id,
+      set_number: row.set_number,
+      weight_lbs: row.weight_lbs,
+      reps: row.reps,
+      notes: row.notes,
+    };
+    session.sets.push(set);
+
+    if (row.weight_lbs != null && row.reps != null) {
+      const rm = calculateEpley1RM(row.weight_lbs, row.reps);
+      if (rm != null && (session.session_1rm == null || rm > session.session_1rm)) {
+        session.session_1rm = rm;
+      }
+    }
+  }
+
+  return Array.from(sessionMap.values());
 }
 
 export async function getPerformedExerciseIds(db: SQLiteDatabase): Promise<Set<number>> {

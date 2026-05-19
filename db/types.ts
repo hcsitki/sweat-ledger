@@ -113,3 +113,20 @@ export interface WorkoutHistoryDetail {
   duration_seconds: number;
   exercises: WorkoutHistoryExercise[];
 }
+
+export interface ExerciseHistorySet {
+  id: number;
+  set_number: number;
+  weight_lbs: number | null;
+  reps: number | null;
+  notes: string | null;
+}
+
+export interface ExerciseHistorySession {
+  workout_exercise_id: number;
+  session_id: number;
+  session_name: string;
+  started_at: number;
+  session_1rm: number | null;
+  sets: ExerciseHistorySet[];
+}
