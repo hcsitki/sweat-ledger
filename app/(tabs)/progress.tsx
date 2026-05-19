@@ -1,9 +1,33 @@
-import { ActivityIndicator, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
 import { useHealthData } from '@/hooks/use-health-data';
+import { useHealthHistory } from '@/hooks/use-health-history';
+import { getDailyTonnage, type DailyTonnage } from '@/db/queries/history';
+import { BodyCompositionChart } from '@/components/BodyCompositionChart';
+import { WorkoutHeatmap } from '@/components/WorkoutHeatmap';
 
 export default function ProgressScreen() {
+  const db = useSQLiteContext();
   const { weightLbs, bodyFatPercent, isAuthorized, isLoading, hasAttempted } = useHealthData();
+  const { points, isLoading: isChartLoading, timeRange, setTimeRange } = useHealthHistory(isAuthorized);
+  const [dailyTonnage, setDailyTonnage] = useState<DailyTonnage[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void getDailyTonnage(db).then(setDailyTonnage);
+    }, [db])
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -11,49 +35,71 @@ export default function ProgressScreen() {
         <Text style={styles.title}>Progress</Text>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Body Metrics</Text>
-        <Text style={styles.sectionSubtitle}>From Apple Health</Text>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Body Metrics</Text>
+          <Text style={styles.sectionSubtitle}>From Apple Health</Text>
 
-        {isLoading ? (
-          <ActivityIndicator style={styles.spinner} />
-        ) : !isAuthorized ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>Apple Health Access Required</Text>
-            {hasAttempted ? (
-              // Permissions were denied — system won't re-prompt, must go to Settings
-              <>
+          {isLoading ? (
+            <ActivityIndicator style={styles.spinner} />
+          ) : !isAuthorized ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>Apple Health Access Required</Text>
+              {hasAttempted ? (
+                <>
+                  <Text style={styles.emptyBody}>
+                    Access was denied. Enable it in Settings to see your body metrics and log workouts
+                    to Apple Health.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.connectBtn}
+                    onPress={() => Linking.openURL('app-settings:')}
+                  >
+                    <Text style={styles.connectBtnText}>Open Settings</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
                 <Text style={styles.emptyBody}>
-                  Access was denied. Enable it in Settings to see your body metrics and log workouts to Apple Health.
+                  Unable to connect to Apple Health. Make sure you are on an iPhone with iOS 16.4 or
+                  later.
                 </Text>
-                <TouchableOpacity
-                  style={styles.connectBtn}
-                  onPress={() => Linking.openURL('app-settings:')}
-                >
-                  <Text style={styles.connectBtnText}>Open Settings</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <Text style={styles.emptyBody}>
-                Unable to connect to Apple Health. Make sure you are on an iPhone with iOS 16.4 or later.
-              </Text>
-            )}
-          </View>
-        ) : (
-          <View style={styles.metricsRow}>
-            <MetricCard
-              label="Weight"
-              value={weightLbs != null ? weightLbs.toFixed(1) : null}
-              unit="lbs"
-            />
-            <MetricCard
-              label="Body Fat"
-              value={bodyFatPercent != null ? bodyFatPercent.toFixed(1) : null}
-              unit="%"
+              )}
+            </View>
+          ) : (
+            <View style={styles.metricsRow}>
+              <MetricCard
+                label="Weight"
+                value={weightLbs != null ? weightLbs.toFixed(1) : null}
+                unit="lbs"
+              />
+              <MetricCard
+                label="Body Fat"
+                value={bodyFatPercent != null ? bodyFatPercent.toFixed(1) : null}
+                unit="%"
+              />
+            </View>
+          )}
+        </View>
+
+        {isAuthorized && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Body Composition</Text>
+            <Text style={styles.sectionSubtitle}>Weight & lean mass over time · lbs</Text>
+            <BodyCompositionChart
+              points={points}
+              isLoading={isChartLoading}
+              timeRange={timeRange}
+              onTimeRangeChange={setTimeRange}
             />
           </View>
         )}
-      </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Training Activity</Text>
+          <Text style={styles.sectionSubtitle}>Last 16 weeks · darker = more volume</Text>
+          <WorkoutHeatmap data={dailyTonnage} />
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -92,6 +138,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#eee',
   },
   title: { fontSize: 28, fontWeight: '700', color: '#000' },
+  scroll: { paddingBottom: 48 },
   section: { paddingHorizontal: 16, paddingTop: 24 },
   sectionTitle: { fontSize: 18, fontWeight: '600', color: '#000', marginBottom: 2 },
   sectionSubtitle: { fontSize: 13, color: '#999', marginBottom: 16 },

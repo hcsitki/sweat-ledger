@@ -4,6 +4,11 @@ import AppleHealthKit, {
   type HealthValue,
 } from 'react-native-health';
 
+export interface HealthSample {
+  date: string; // YYYY-MM-DD
+  value: number;
+}
+
 const PERMISSIONS: HealthKitPermissions = {
   permissions: {
     read: [
@@ -51,6 +56,35 @@ export async function getLatestBodyFat(): Promise<number | null> {
         }
         // HealthKit stores body fat as a decimal (0.20 = 20%)
         resolve(result.value * 100);
+      }
+    );
+  });
+}
+
+export async function getWeightSamples(start: Date, end: Date): Promise<HealthSample[]> {
+  if (Platform.OS !== 'ios') return [];
+  return new Promise((resolve) => {
+    AppleHealthKit.getWeightSamples(
+      {
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+        unit: AppleHealthKit.Constants.Units.pound,
+        ascending: true,
+      },
+      (err: string, results: HealthValue[]) => {
+        resolve(err || !results ? [] : results.map((r) => ({ date: r.startDate.slice(0, 10), value: r.value })));
+      }
+    );
+  });
+}
+
+export async function getBodyFatSamples(start: Date, end: Date): Promise<HealthSample[]> {
+  if (Platform.OS !== 'ios') return [];
+  return new Promise((resolve) => {
+    AppleHealthKit.getBodyFatPercentageSamples(
+      { startDate: start.toISOString(), endDate: end.toISOString(), ascending: true },
+      (err: string, results: HealthValue[]) => {
+        resolve(err || !results ? [] : results.map((r) => ({ date: r.startDate.slice(0, 10), value: r.value * 100 })));
       }
     );
   });

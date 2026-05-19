@@ -6,6 +6,12 @@ import {
   type WorkoutHistorySet,
 } from '../types';
 
+export interface DailyTonnage {
+  date: string; // YYYY-MM-DD
+  tonnage: number;
+  workout_count: number;
+}
+
 export async function getCompletedWorkouts(db: SQLiteDatabase): Promise<CompletedWorkoutSummary[]> {
   return db.getAllAsync<CompletedWorkoutSummary>(
     `SELECT id, name, started_at, finished_at, duration_seconds
@@ -93,6 +99,24 @@ export async function getWorkoutDetail(
     duration_seconds: first.duration_seconds,
     exercises: Array.from(exerciseMap.values()),
   };
+}
+
+export async function getDailyTonnage(db: SQLiteDatabase, daysBack = 112): Promise<DailyTonnage[]> {
+  const cutoffMs = Date.now() - daysBack * 24 * 60 * 60 * 1000;
+  return db.getAllAsync<DailyTonnage>(
+    `SELECT
+       date(ws.started_at / 1000, 'unixepoch', 'localtime') AS date,
+       COALESCE(SUM(CASE WHEN s.weight_lbs > 0 AND s.reps > 0 THEN s.weight_lbs * s.reps ELSE 0 END), 0) AS tonnage,
+       COUNT(DISTINCT ws.id) AS workout_count
+     FROM workout_sessions ws
+     LEFT JOIN workout_exercises we ON we.session_id = ws.id
+     LEFT JOIN sets s ON s.workout_exercise_id = we.id
+     WHERE ws.status = 'completed'
+       AND ws.started_at >= ?
+     GROUP BY date(ws.started_at / 1000, 'unixepoch', 'localtime')
+     ORDER BY date ASC`,
+    cutoffMs
+  );
 }
 
 export async function getBestEpley1RMBeforeSession(
