@@ -27,6 +27,7 @@ export default function TabLayout() {
         name="history"
         options={{
           title: 'History',
+          headerShown: true,
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
         }}
       />
