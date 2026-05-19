@@ -5,7 +5,15 @@ export interface Exercise {
   equipment_type: string;
   is_bodyweight: number;
   is_custom: number;
+  instructions: string | null;
   created_at: number;
+}
+
+export interface ExerciseStats {
+  best_set_weight: number | null;
+  best_set_volume: number | null;
+  best_session_volume: number | null;
+  estimated_1rm: number | null;
 }
 
 export interface WorkoutSession {

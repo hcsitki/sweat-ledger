@@ -6,16 +6,19 @@ import {
   TextInput,
   Text,
   TouchableOpacity,
-  ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useWorkoutStore } from '@/store/workout';
 import { getExercises } from '@/db/queries/exercises';
 import { addWorkoutExercise } from '@/db/queries/sets';
+import { FilterBar } from '@/components/exercises/FilterBar';
 import type { Exercise } from '@/db/types';
 
-const MUSCLE_GROUPS = ['All', 'Back', 'Chest', 'Legs', 'Shoulders', 'Arms', 'Core'];
+const MUSCLE_GROUPS = [
+  'All', 'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps',
+  'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Core',
+];
 
 export default function AddExerciseScreen() {
   const db = useSQLiteContext();
@@ -62,24 +65,7 @@ export default function AddExerciseScreen() {
         autoFocus
         returnKeyType="search"
       />
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.chipScroll}
-        contentContainerStyle={styles.chipContent}
-      >
-        {MUSCLE_GROUPS.map((g) => (
-          <TouchableOpacity
-            key={g}
-            style={[styles.chip, selectedGroup === g && styles.chipActive]}
-            onPress={() => setSelectedGroup(g)}
-          >
-            <Text style={[styles.chipText, selectedGroup === g && styles.chipTextActive]}>
-              {g}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <FilterBar options={MUSCLE_GROUPS} selected={selectedGroup} onSelect={setSelectedGroup} />
       <FlatList
         data={filtered}
         keyExtractor={(item) => String(item.id)}
@@ -112,18 +98,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#f5f5f5',
   },
-  chipScroll: { flexGrow: 0, marginBottom: 8 },
-  chipContent: { paddingHorizontal: 12, gap: 8 },
-  chip: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  chipActive: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
-  chipText: { color: '#333', fontSize: 14 },
-  chipTextActive: { color: '#fff', fontSize: 14 },
   row: {
     paddingHorizontal: 16,
     paddingVertical: 12,

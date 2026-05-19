@@ -34,6 +34,7 @@ export default function TabLayout() {
         name="exercises"
         options={{
           title: 'Exercises',
+          headerShown: true,
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="dumbbell.fill" color={color} />,
         }}
       />

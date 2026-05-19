@@ -33,6 +33,11 @@ export default function RootLayout() {
             name="workout/add-exercise"
             options={{ title: 'Add Exercise', presentation: 'modal' }}
           />
+          <Stack.Screen name="exercise/[id]" options={{ title: 'Exercise' }} />
+          <Stack.Screen
+            name="exercise/create"
+            options={{ title: 'New Exercise', presentation: 'modal' }}
+          />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
