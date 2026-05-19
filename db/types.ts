@@ -78,3 +78,38 @@ export interface TemplateWithDetails extends WorkoutTemplate {
   exercises: TemplateExerciseWithDetails[];
   exercise_count: number;
 }
+
+export interface CompletedWorkoutSummary {
+  id: number;
+  name: string;
+  started_at: number;
+  finished_at: number;
+  duration_seconds: number;
+}
+
+export interface WorkoutHistorySet {
+  id: number;
+  set_number: number;
+  weight_lbs: number | null;
+  reps: number | null;
+  notes: string | null;
+  logged_at: number;
+}
+
+export interface WorkoutHistoryExercise {
+  workout_exercise_id: number;
+  exercise_id: number;
+  exercise_name: string;
+  is_bodyweight: number;
+  order_index: number;
+  sets: WorkoutHistorySet[];
+}
+
+export interface WorkoutHistoryDetail {
+  id: number;
+  name: string;
+  started_at: number;
+  finished_at: number;
+  duration_seconds: number;
+  exercises: WorkoutHistoryExercise[];
+}
