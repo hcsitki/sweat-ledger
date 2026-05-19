@@ -19,6 +19,7 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise }: ExerciseCard
   const startRestTimer = useWorkoutStore((s) => s.startRestTimer);
   const [sets, setSets] = useState<Set[]>([]);
   const [prevSets, setPrevSets] = useState<Set[]>([]);
+  const [restDuration, setRestDuration] = useState(90);
 
   const loadSets = useCallback(async () => {
     const fetched = await getSetsForWorkoutExercise(db, workoutExercise.workoutExerciseId);
@@ -30,7 +31,12 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise }: ExerciseCard
     getPreviousPerformance(db, workoutExercise.exerciseId).then((perf) => {
       if (perf) setPrevSets(perf.sets);
     });
-  }, [loadSets, workoutExercise.exerciseId]);
+    db.getFirstAsync<{ value: string }>(
+      "SELECT value FROM settings WHERE key = 'rest_timer_duration'"
+    ).then((row) => {
+      if (row) setRestDuration(Number(row.value));
+    });
+  }, [loadSets, workoutExercise.exerciseId, db]);
 
   const handleAddSet = async () => {
     const lastSet = sets[sets.length - 1];
@@ -41,8 +47,8 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise }: ExerciseCard
     });
     await loadSets();
 
-    const notifId = await scheduleRestTimerNotification(90);
-    startRestTimer(90, notifId);
+    const notifId = await scheduleRestTimerNotification(restDuration);
+    startRestTimer(restDuration, notifId);
   };
 
   const handleUpdateSet = async (

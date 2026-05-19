@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useWorkoutStore } from '@/store/workout';
 import { finishWorkoutSession, cancelWorkoutSession, updateSessionName } from '@/db/queries/workouts';
+import { deleteWorkoutExercise } from '@/db/queries/sets';
 import { ExerciseCard } from '@/components/workout/ExerciseCard';
 import { WorkoutTimer } from '@/components/workout/WorkoutTimer';
 import { RestTimerBar } from '@/components/workout/RestTimerBar';
@@ -28,20 +29,34 @@ export default function ActiveWorkoutScreen() {
   const removeExerciseFromSession = useWorkoutStore((s) => s.removeExerciseFromSession);
   const clearWorkout = useWorkoutStore((s) => s.clearWorkout);
 
+  const nameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleNameChange = useCallback(
-    async (name: string) => {
+    (name: string) => {
       setSessionName(name);
-      if (sessionId != null) await updateSessionName(db, sessionId, name);
+      if (sessionId == null) return;
+      if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
+      nameDebounceRef.current = setTimeout(() => {
+        updateSessionName(db, sessionId, name);
+      }, 500);
     },
     [sessionId, db, setSessionName]
   );
 
-  const handleFinish = useCallback(async () => {
-    if (sessionId == null || startedAt == null) return;
-    const durationSeconds = getElapsedSeconds(startedAt);
-    await finishWorkoutSession(db, sessionId, durationSeconds);
-    clearWorkout();
-    router.replace('/(tabs)');
+  const handleFinish = useCallback(() => {
+    Alert.alert('Finish Workout?', 'Save this session and return to home.', [
+      { text: 'Keep Going', style: 'cancel' },
+      {
+        text: 'Finish',
+        onPress: async () => {
+          if (sessionId == null || startedAt == null) return;
+          const durationSeconds = getElapsedSeconds(startedAt);
+          await finishWorkoutSession(db, sessionId, durationSeconds);
+          clearWorkout();
+          router.replace('/(tabs)');
+        },
+      },
+    ]);
   }, [sessionId, startedAt, db, clearWorkout]);
 
   const handleCancel = useCallback(() => {
@@ -61,7 +76,7 @@ export default function ActiveWorkoutScreen() {
 
   const handleDeleteExercise = useCallback(
     async (workoutExerciseId: number) => {
-      await db.runAsync('DELETE FROM workout_exercises WHERE id = ?', workoutExerciseId);
+      await deleteWorkoutExercise(db, workoutExerciseId);
       removeExerciseFromSession(workoutExerciseId);
     },
     [db, removeExerciseFromSession]

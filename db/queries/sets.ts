@@ -78,6 +78,10 @@ export async function deleteSet(db: SQLiteDatabase, setId: number): Promise<void
   await db.runAsync('DELETE FROM sets WHERE id = ?', setId);
 }
 
+export async function deleteWorkoutExercise(db: SQLiteDatabase, workoutExerciseId: number): Promise<void> {
+  await db.runAsync('DELETE FROM workout_exercises WHERE id = ?', workoutExerciseId);
+}
+
 export async function getSetsForWorkoutExercise(
   db: SQLiteDatabase,
   workoutExerciseId: number
