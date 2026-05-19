@@ -15,7 +15,7 @@ interface RestTimerState {
   notificationId: string | null;
 }
 
-interface ActiveWorkoutStore {
+export interface ActiveWorkoutStore {
   sessionId: number | null;
   sessionName: string;
   startedAt: number | null;

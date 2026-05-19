@@ -52,8 +52,9 @@ export default function ActiveWorkoutScreen() {
           if (sessionId == null || startedAt == null) return;
           const durationSeconds = getElapsedSeconds(startedAt);
           await finishWorkoutSession(db, sessionId, durationSeconds);
+          const finishedSessionId = sessionId;
           clearWorkout();
-          router.replace('/(tabs)');
+          router.replace(`/(tabs)?justFinished=${finishedSessionId}`);
         },
       },
     ]);

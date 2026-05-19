@@ -7,12 +7,13 @@ import {
   Text,
   TouchableOpacity,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useWorkoutStore } from '@/store/workout';
 import { getExercises } from '@/db/queries/exercises';
 import { addWorkoutExercise } from '@/db/queries/sets';
 import { FilterBar } from '@/components/exercises/FilterBar';
+import { useTemplateEditorStore } from '@/store/template-editor';
 import type { Exercise } from '@/db/types';
 
 const MUSCLE_GROUPS = [
@@ -22,6 +23,9 @@ const MUSCLE_GROUPS = [
 
 export default function AddExerciseScreen() {
   const db = useSQLiteContext();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
+  const isTemplateMode = returnTo === 'template';
+
   const sessionId = useWorkoutStore((s) => s.sessionId);
   const workoutExercises = useWorkoutStore((s) => s.workoutExercises);
   const addExerciseToSession = useWorkoutStore((s) => s.addExerciseToSession);
@@ -41,7 +45,18 @@ export default function AddExerciseScreen() {
     ? exercises.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()))
     : exercises;
 
+  const setPendingExercise = useTemplateEditorStore((s) => s.setPendingExercise);
+
   const handleSelect = async (exercise: Exercise) => {
+    if (isTemplateMode) {
+      setPendingExercise({
+        id: exercise.id,
+        name: exercise.name,
+        isBodyweight: exercise.is_bodyweight === 1,
+      });
+      router.back();
+      return;
+    }
     if (sessionId == null) return;
     const orderIndex = workoutExercises.length;
     const workoutExerciseId = await addWorkoutExercise(db, sessionId, exercise.id, orderIndex);

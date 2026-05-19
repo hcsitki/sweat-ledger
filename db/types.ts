@@ -46,3 +46,35 @@ export interface Set {
   notes: string | null;
   logged_at: number;
 }
+
+export interface WorkoutTemplate {
+  id: number;
+  name: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface TemplateExercise {
+  id: number;
+  template_id: number;
+  exercise_id: number;
+  order_index: number;
+}
+
+export interface TemplateSet {
+  id: number;
+  template_exercise_id: number;
+  set_number: number;
+  target_reps: number | null;
+}
+
+export interface TemplateExerciseWithDetails extends TemplateExercise {
+  exercise_name: string;
+  is_bodyweight: number;
+  sets: TemplateSet[];
+}
+
+export interface TemplateWithDetails extends WorkoutTemplate {
+  exercises: TemplateExerciseWithDetails[];
+  exercise_count: number;
+}

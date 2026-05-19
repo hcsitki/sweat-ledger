@@ -224,6 +224,37 @@ export async function migrateDb(db: SQLiteDatabase) {
   if (version < 2) {
     await migrateToV2(db);
   }
+
+  if (version < 3) {
+    await migrateToV3(db);
+  }
+}
+
+async function migrateToV3(db: SQLiteDatabase) {
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS workout_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+    );
+
+    CREATE TABLE IF NOT EXISTS template_exercises (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      template_id INTEGER NOT NULL REFERENCES workout_templates(id) ON DELETE CASCADE,
+      exercise_id INTEGER NOT NULL REFERENCES exercises(id),
+      order_index INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS template_sets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      template_exercise_id INTEGER NOT NULL REFERENCES template_exercises(id) ON DELETE CASCADE,
+      set_number INTEGER NOT NULL,
+      target_reps INTEGER
+    );
+  `);
+
+  await db.execAsync('PRAGMA user_version = 3');
 }
 
 async function migrateToV2(db: SQLiteDatabase) {

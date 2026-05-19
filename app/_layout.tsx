@@ -38,6 +38,15 @@ export default function RootLayout() {
             name="exercise/create"
             options={{ title: 'New Exercise', presentation: 'modal' }}
           />
+          <Stack.Screen name="template/[id]" options={{ title: 'Template' }} />
+          <Stack.Screen
+            name="template/create"
+            options={{ title: 'New Template', presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="template/save-from-workout"
+            options={{ title: 'Save as Template', presentation: 'modal' }}
+          />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
