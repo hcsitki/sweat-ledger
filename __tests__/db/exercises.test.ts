@@ -47,7 +47,8 @@ describe('createCustomExercise', () => {
       'My Exercise',
       'Arms',
       'Dumbbell',
-      0
+      0,
+      null
     );
   });
 });
