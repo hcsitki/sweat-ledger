@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { SetRow } from './SetRow';
 import type { Set } from '@/db/types';
@@ -20,6 +20,8 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise }: ExerciseCard
   const [sets, setSets] = useState<Set[]>([]);
   const [prevSets, setPrevSets] = useState<Set[]>([]);
   const [restDuration, setRestDuration] = useState(90);
+  // Stores the first TextInput node of each row so onNext can focus it directly.
+  const firstInputs = useRef<Map<number, TextInput | null>>(new Map());
 
   const loadSets = useCallback(async () => {
     const fetched = await getSetsForWorkoutExercise(db, workoutExercise.workoutExerciseId);
@@ -99,6 +101,10 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise }: ExerciseCard
           isBodyweight={workoutExercise.isBodyweight}
           onUpdate={handleUpdateSet}
           onDelete={handleDeleteSet}
+          onRegisterFirstInput={(node) => { firstInputs.current.set(s.id, node); }}
+          onNext={idx < sets.length - 1
+            ? () => { firstInputs.current.get(sets[idx + 1].id)?.focus(); }
+            : undefined}
         />
       ))}
       <TouchableOpacity style={styles.addSetBtn} onPress={handleAddSet}>
