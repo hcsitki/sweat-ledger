@@ -24,13 +24,15 @@ export function useHealthData(): HealthData {
     try {
       const ok = await initHealthKit();
       setIsAuthorized(ok);
-      setHasAttempted(true);
       if (ok) {
         const [weight, bodyFat] = await Promise.all([getLatestWeight(), getLatestBodyFat()]);
         setWeightLbs(weight);
         setBodyFatPercent(bodyFat);
       }
+    } catch {
+      // Native module unavailable or threw — treated as not authorized
     } finally {
+      setHasAttempted(true);
       setIsLoading(false);
     }
   }, []);
