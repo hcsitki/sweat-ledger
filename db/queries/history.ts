@@ -1,6 +1,7 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
 import {
   type CompletedWorkoutSummary,
+  type WorkoutExerciseLine,
   type WorkoutHistoryDetail,
   type WorkoutHistoryExercise,
   type WorkoutHistorySet,
@@ -12,13 +13,97 @@ export interface DailyTonnage {
   workout_count: number;
 }
 
+interface WorkoutSummaryRow {
+  id: number;
+  name: string;
+  started_at: number;
+  finished_at: number;
+  duration_seconds: number;
+  total_tonnage: number;
+  pr_count: number;
+}
+
+interface ExerciseLineRow extends WorkoutExerciseLine {
+  session_id: number;
+  order_index: number;
+}
+
 export async function getCompletedWorkouts(db: SQLiteDatabase): Promise<CompletedWorkoutSummary[]> {
-  return db.getAllAsync<CompletedWorkoutSummary>(
-    `SELECT id, name, started_at, finished_at, duration_seconds
-     FROM workout_sessions
-     WHERE status = 'completed'
-     ORDER BY started_at DESC`
-  );
+  const [summaries, exerciseRows] = await Promise.all([
+    db.getAllAsync<WorkoutSummaryRow>(`
+      SELECT
+        ws.id,
+        ws.name,
+        ws.started_at,
+        ws.finished_at,
+        ws.duration_seconds,
+        COALESCE(SUM(CASE WHEN s.weight_lbs > 0 AND s.reps > 0 THEN s.weight_lbs * s.reps ELSE 0 END), 0) AS total_tonnage,
+        COUNT(DISTINCT CASE
+          WHEN s.reps > 0 AND s.reps <= 15 AND s.weight_lbs > 0
+          AND (s.weight_lbs * (1.0 + s.reps / 30.0)) > COALESCE((
+            SELECT MAX(s2.weight_lbs * (1.0 + s2.reps / 30.0))
+            FROM sets s2
+            JOIN workout_exercises we2 ON s2.workout_exercise_id = we2.id
+            JOIN workout_sessions ws2 ON we2.session_id = ws2.id
+            WHERE we2.exercise_id = we.exercise_id
+              AND ws2.started_at < ws.started_at
+              AND ws2.status = 'completed'
+              AND s2.reps > 0 AND s2.reps <= 15 AND s2.weight_lbs > 0
+          ), 0)
+          THEN we.exercise_id
+          ELSE NULL
+        END) AS pr_count
+      FROM workout_sessions ws
+      LEFT JOIN workout_exercises we ON we.session_id = ws.id
+      LEFT JOIN sets s ON s.workout_exercise_id = we.id
+      WHERE ws.status = 'completed'
+      GROUP BY ws.id, ws.name, ws.started_at, ws.finished_at, ws.duration_seconds
+      ORDER BY ws.started_at DESC
+    `),
+    db.getAllAsync<ExerciseLineRow>(`
+      SELECT
+        we.session_id,
+        e.name AS exercise_name,
+        e.is_bodyweight,
+        we.order_index,
+        COUNT(s.id) AS set_count,
+        (SELECT s2.weight_lbs FROM sets s2
+         WHERE s2.workout_exercise_id = we.id
+           AND s2.weight_lbs > 0 AND s2.reps > 0
+         ORDER BY s2.weight_lbs * (1.0 + s2.reps / 30.0) DESC
+         LIMIT 1) AS best_weight,
+        (SELECT s2.reps FROM sets s2
+         WHERE s2.workout_exercise_id = we.id
+           AND s2.weight_lbs > 0 AND s2.reps > 0
+         ORDER BY s2.weight_lbs * (1.0 + s2.reps / 30.0) DESC
+         LIMIT 1) AS best_reps
+      FROM workout_exercises we
+      JOIN exercises e ON e.id = we.exercise_id
+      JOIN workout_sessions ws ON ws.id = we.session_id AND ws.status = 'completed'
+      LEFT JOIN sets s ON s.workout_exercise_id = we.id
+      GROUP BY we.id, we.session_id, e.name, e.is_bodyweight, we.order_index
+      ORDER BY we.session_id DESC, we.order_index ASC
+    `),
+  ]);
+
+  const exercisesBySession = new Map<number, WorkoutExerciseLine[]>();
+  for (const row of exerciseRows) {
+    if (!exercisesBySession.has(row.session_id)) {
+      exercisesBySession.set(row.session_id, []);
+    }
+    exercisesBySession.get(row.session_id)!.push({
+      exercise_name: row.exercise_name,
+      is_bodyweight: row.is_bodyweight,
+      set_count: row.set_count,
+      best_weight: row.best_weight,
+      best_reps: row.best_reps,
+    });
+  }
+
+  return summaries.map((s) => ({
+    ...s,
+    exercises: exercisesBySession.get(s.id) ?? [],
+  }));
 }
 
 interface DetailRow {
@@ -117,6 +202,10 @@ export async function getDailyTonnage(db: SQLiteDatabase, daysBack = 112): Promi
      ORDER BY date ASC`,
     cutoffMs
   );
+}
+
+export async function deleteWorkout(db: SQLiteDatabase, sessionId: number): Promise<void> {
+  await db.runAsync('DELETE FROM workout_sessions WHERE id = ?', sessionId);
 }
 
 export async function getBestEpley1RMBeforeSession(

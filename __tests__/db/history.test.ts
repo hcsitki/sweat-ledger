@@ -18,17 +18,38 @@ describe('getCompletedWorkouts', () => {
       expect.stringMatching(/status = 'completed'/),
     );
     expect(mockDb.getAllAsync).toHaveBeenCalledWith(
-      expect.stringMatching(/ORDER BY started_at DESC/),
+      expect.stringMatching(/ORDER BY.*started_at DESC/s),
     );
   });
 
-  it('returns the rows from the db', async () => {
-    const rows = [
-      { id: 1, name: 'Push Day', started_at: 2000, finished_at: 5000, duration_seconds: 3600 },
+  it('assembles workout summaries with exercises from two queries', async () => {
+    const summaryRows = [
+      { id: 1, name: 'Push Day', started_at: 2000, finished_at: 5000, duration_seconds: 3600, total_tonnage: 1200, pr_count: 2 },
     ];
-    mockDb.getAllAsync.mockResolvedValueOnce(rows);
+    const exerciseRows = [
+      { session_id: 1, exercise_name: 'Bench Press', is_bodyweight: 0, order_index: 0, set_count: 3, best_weight: 80, best_reps: 11 },
+    ];
+    mockDb.getAllAsync
+      .mockResolvedValueOnce(summaryRows)
+      .mockResolvedValueOnce(exerciseRows);
     const result = await getCompletedWorkouts(mockDb);
-    expect(result).toEqual(rows);
+    expect(result).toHaveLength(1);
+    expect(result[0].total_tonnage).toBe(1200);
+    expect(result[0].pr_count).toBe(2);
+    expect(result[0].exercises).toHaveLength(1);
+    expect(result[0].exercises[0].exercise_name).toBe('Bench Press');
+    expect(result[0].exercises[0].best_weight).toBe(80);
+  });
+
+  it('returns empty exercises array when no exercises recorded', async () => {
+    const summaryRows = [
+      { id: 2, name: 'Empty', started_at: 1000, finished_at: 2000, duration_seconds: 1000, total_tonnage: 0, pr_count: 0 },
+    ];
+    mockDb.getAllAsync
+      .mockResolvedValueOnce(summaryRows)
+      .mockResolvedValueOnce([]);
+    const result = await getCompletedWorkouts(mockDb);
+    expect(result[0].exercises).toEqual([]);
   });
 });
 

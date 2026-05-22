@@ -101,12 +101,23 @@ export interface TemplateWithDetails extends WorkoutTemplate {
   exercise_count: number;
 }
 
+export interface WorkoutExerciseLine {
+  exercise_name: string;
+  is_bodyweight: number;
+  set_count: number;
+  best_weight: number | null;
+  best_reps: number | null;
+}
+
 export interface CompletedWorkoutSummary {
   id: number;
   name: string;
   started_at: number;
   finished_at: number;
   duration_seconds: number;
+  total_tonnage: number;
+  pr_count: number;
+  exercises: WorkoutExerciseLine[];
 }
 
 export interface WorkoutHistorySet {

@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useLayoutEffect, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { useLocalSearchParams, useNavigation, router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { getWorkoutDetail, getBestEpley1RMBeforeSession } from '@/db/queries/history';
+import { getWorkoutDetail, getBestEpley1RMBeforeSession, deleteWorkout } from '@/db/queries/history';
 import { calculateEpley1RM, formatDuration } from '@/utils/calculations';
 import {
   WorkoutDetailExercise,
@@ -56,9 +56,38 @@ function enrichExercises(
 export default function WorkoutDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const db = useSQLiteContext();
+  const navigation = useNavigation();
   const [detail, setDetail] = useState<WorkoutHistoryDetail | null>(null);
   const [enriched, setEnriched] = useState<EnrichedExercise[]>([]);
   const [loading, setLoading] = useState(true);
+
+  function handleDelete() {
+    Alert.alert(
+      'Delete Workout',
+      'This workout will be permanently deleted. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteWorkout(db, Number(id));
+            router.back();
+          },
+        },
+      ]
+    );
+  }
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity onPress={handleDelete} style={{ marginRight: 4 }}>
+          <Text style={{ color: '#FF3B30', fontSize: 16 }}>Delete</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, id]);
 
   useEffect(() => {
     async function load() {

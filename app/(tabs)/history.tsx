@@ -51,7 +51,7 @@ export default function HistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
-  listContent: { paddingBottom: 40 },
+  listContent: { paddingBottom: 40, paddingTop: 6 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   empty: { textAlign: 'center', color: '#999', fontSize: 15, lineHeight: 22 },
 });
