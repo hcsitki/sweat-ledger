@@ -88,6 +88,7 @@ function ExercisePickerModal({
                 value={query}
                 onChangeText={setQuery}
                 placeholder="Search exercises…"
+                placeholderTextColor="#636366"
                 autoFocus
                 clearButtonMode="while-editing"
                 returnKeyType="search"
@@ -252,11 +253,11 @@ export default function MapExercisesScreen() {
 }
 
 const styles = StyleSheet.create({
-  list: { flex: 1, backgroundColor: '#f5f5f5' },
+  list: { flex: 1, backgroundColor: '#1C1C1E' },
   content: { paddingBottom: 40 },
   hint: {
     fontSize: 14,
-    color: '#666',
+    color: '#8E8E93',
     lineHeight: 20,
     padding: 16,
     paddingBottom: 8,
@@ -264,16 +265,16 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#2C2C2E',
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
   rowLeft: { flex: 1, gap: 3 },
-  csvName: { fontSize: 15, fontWeight: '500', color: '#1a1a1a' },
+  csvName: { fontSize: 15, fontWeight: '500', color: '#FFFFFF' },
   mappedName: { fontSize: 13, color: '#007AFF' },
-  unmapped: { color: '#999' },
-  chevron: { fontSize: 20, color: '#ccc', marginLeft: 8 },
-  separator: { height: StyleSheet.hairlineWidth, backgroundColor: '#e5e5e5', marginLeft: 16 },
+  unmapped: { color: '#636366' },
+  chevron: { fontSize: 20, color: '#636366', marginLeft: 8 },
+  separator: { height: StyleSheet.hairlineWidth, backgroundColor: '#38383A', marginLeft: 16 },
   continueButton: {
     backgroundColor: '#007AFF',
     borderRadius: 12,
@@ -285,7 +286,7 @@ const styles = StyleSheet.create({
   continueText: { color: '#fff', fontSize: 17, fontWeight: '600' },
   mappingHint: {
     textAlign: 'center',
-    color: '#999',
+    color: '#8E8E93',
     fontSize: 13,
     marginTop: 24,
     paddingHorizontal: 16,
@@ -295,12 +296,12 @@ const styles = StyleSheet.create({
 const pickerStyles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
   },
   sheetWrapper: { maxHeight: '85%' },
   sheet: {
-    backgroundColor: '#fff',
+    backgroundColor: '#2C2C2E',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     maxHeight: '100%',
@@ -308,7 +309,7 @@ const pickerStyles = StyleSheet.create({
   handle: {
     width: 36,
     height: 4,
-    backgroundColor: '#ddd',
+    backgroundColor: '#636366',
     borderRadius: 2,
     alignSelf: 'center',
     marginTop: 8,
@@ -321,15 +322,16 @@ const pickerStyles = StyleSheet.create({
     paddingVertical: 8,
     gap: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e5e5',
+    borderBottomColor: '#38383A',
   },
   searchInput: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#3A3A3C',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 15,
+    color: '#FFFFFF',
   },
   cancelBtn: { paddingHorizontal: 4 },
   cancelText: { color: '#007AFF', fontSize: 16 },
@@ -339,9 +341,9 @@ const pickerStyles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  optionRowSelected: { backgroundColor: '#F0F8FF' },
-  optionName: { fontSize: 16, fontWeight: '500', color: '#1a1a1a' },
-  optionMeta: { fontSize: 13, color: '#888', marginTop: 2 },
+  optionRowSelected: { backgroundColor: 'rgba(0, 122, 255, 0.1)' },
+  optionName: { fontSize: 16, fontWeight: '500', color: '#FFFFFF' },
+  optionMeta: { fontSize: 13, color: '#8E8E93', marginTop: 2 },
   checkmark: { fontSize: 18, color: '#007AFF', marginLeft: 8 },
-  separator: { height: StyleSheet.hairlineWidth, backgroundColor: '#e5e5e5', marginLeft: 16 },
+  separator: { height: StyleSheet.hairlineWidth, backgroundColor: '#38383A', marginLeft: 16 },
 });

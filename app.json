@@ -12,7 +12,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.huntersitki.sweatledger",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSHealthShareUsageDescription": "This app needs access to read your health data to track your fitness.",
+        "NSHealthUpdateUsageDescription": "This app needs access to write health data to save your workouts."
       },
       "entitlements": {
         "com.apple.developer.healthkit": true,

@@ -173,19 +173,21 @@ export default function WorkoutDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#f5f5f5' },
+  scroll: { flex: 1, backgroundColor: '#1C1C1E' },
   content: { padding: 16, gap: 12, paddingBottom: 40 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  notFound: { color: '#888', fontSize: 16 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1C1C1E' },
+  notFound: { color: '#8E8E93', fontSize: 16 },
 
   headerCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#2C2C2E',
     borderRadius: 12,
     padding: 16,
     gap: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#38383A',
   },
-  workoutName: { fontSize: 22, fontWeight: '700', color: '#1a1a1a' },
-  date: { fontSize: 14, color: '#888' },
+  workoutName: { fontSize: 22, fontWeight: '700', color: '#FFFFFF' },
+  date: { fontSize: 14, color: '#8E8E93' },
 
   statsRow: {
     flexDirection: 'row',
@@ -193,10 +195,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e5e5e5',
+    borderTopColor: '#38383A',
   },
   stat: { flex: 1, alignItems: 'center', gap: 2 },
-  statValue: { fontSize: 16, fontWeight: '600', color: '#1a1a1a' },
-  statLabel: { fontSize: 11, color: '#aaa', textTransform: 'uppercase' },
-  statDivider: { width: StyleSheet.hairlineWidth, height: 32, backgroundColor: '#e5e5e5' },
+  statValue: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+  statLabel: { fontSize: 11, color: '#8E8E93', textTransform: 'uppercase' },
+  statDivider: { width: StyleSheet.hairlineWidth, height: 32, backgroundColor: '#38383A' },
 });

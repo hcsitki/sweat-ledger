@@ -276,6 +276,7 @@ export default function TemplateCreateScreen() {
                 value={name}
                 onChangeText={setName}
                 placeholder="e.g. Push Day"
+                placeholderTextColor="#636366"
                 autoFocus={!isEditMode}
                 returnKeyType="done"
               />
@@ -305,6 +306,7 @@ export default function TemplateCreateScreen() {
                     onChangeText={(v) => handleUpdateReps(exIdx, sIdx, v.replace(/[^0-9]/g, ''))}
                     keyboardType="number-pad"
                     placeholder="—"
+                    placeholderTextColor="#636366"
                     maxLength={3}
                   />
                   <TouchableOpacity
@@ -342,51 +344,55 @@ export default function TemplateCreateScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#fff' },
+  safeArea: { flex: 1, backgroundColor: '#1C1C1E' },
   flex: { flex: 1 },
   listContent: { padding: 16, gap: 16 },
 
   header: { gap: 6, marginBottom: 4 },
-  label: { fontSize: 13, fontWeight: '600', color: '#666', textTransform: 'uppercase' },
+  label: { fontSize: 13, fontWeight: '600', color: '#8E8E93', textTransform: 'uppercase' },
   nameInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#38383A',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 17,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#3A3A3C',
+    color: '#FFFFFF',
   },
 
   exerciseCard: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#2C2C2E',
     borderRadius: 12,
     padding: 14,
     gap: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#38383A',
   },
   exerciseHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  exerciseName: { fontSize: 16, fontWeight: '600', flex: 1 },
+  exerciseName: { fontSize: 16, fontWeight: '600', flex: 1, color: '#007AFF' },
   removeText: { color: '#FF3B30', fontSize: 14 },
 
   setHeaderRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 2 },
   setRow: { flexDirection: 'row', alignItems: 'center' },
-  setCol: { fontSize: 14 },
-  setColNum: { width: 36, color: '#666' },
+  setCol: { fontSize: 14, color: '#FFFFFF' },
+  setColNum: { width: 36, color: '#8E8E93' },
   setColReps: { flex: 1 },
   setColAction: { width: 32, alignItems: 'center' },
 
   repsInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#38383A',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#fff',
+    backgroundColor: '#3A3A3C',
     textAlign: 'center',
+    color: '#FFFFFF',
   },
   removeSetText: { color: '#FF3B30', fontSize: 14 },
 
@@ -396,10 +402,11 @@ const styles = StyleSheet.create({
   footer: { gap: 12, marginTop: 8 },
   addExerciseBtn: {
     borderWidth: 1,
-    borderColor: '#007AFF',
+    borderColor: '#38383A',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
+    backgroundColor: '#2C2C2E',
   },
   addExerciseBtnText: { color: '#007AFF', fontSize: 16, fontWeight: '600' },
 
@@ -409,6 +416,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
-  saveBtnDisabled: { backgroundColor: '#99C2FF' },
+  saveBtnDisabled: { backgroundColor: 'rgba(0, 122, 255, 0.4)' },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });

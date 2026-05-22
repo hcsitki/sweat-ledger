@@ -55,6 +55,7 @@ export default function ExercisesScreen() {
       <TextInput
         style={styles.search}
         placeholder="Search exercises…"
+        placeholderTextColor="#636366"
         value={search}
         onChangeText={setSearch}
         clearButtonMode="while-editing"
@@ -111,17 +112,18 @@ export default function ExercisesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#1C1C1E' },
   search: {
     margin: 12,
     marginBottom: 6,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#ddd',
+    borderColor: '#38383A',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#3A3A3C',
+    color: '#FFFFFF',
   },
   toggleRow: {
     flexDirection: 'row',
@@ -129,26 +131,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#fff',
+    backgroundColor: '#2C2C2E',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e5e5',
+    borderBottomColor: '#38383A',
   },
-  toggleLabel: { fontSize: 15, color: '#333' },
+  toggleLabel: { fontSize: 15, color: '#FFFFFF' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 13,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e5e5',
-    backgroundColor: '#fff',
+    borderBottomColor: '#38383A',
+    backgroundColor: '#2C2C2E',
   },
   main: { flex: 1 },
-  name: { fontSize: 16, fontWeight: '500', color: '#1a1a1a' },
-  meta: { fontSize: 13, color: '#888', marginTop: 2 },
+  name: { fontSize: 16, fontWeight: '500', color: '#FFFFFF' },
+  meta: { fontSize: 13, color: '#8E8E93', marginTop: 2 },
   right: { flexDirection: 'row', alignItems: 'center' },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#007AFF' },
-  empty: { textAlign: 'center', color: '#999', fontSize: 15, marginTop: 40 },
+  empty: { textAlign: 'center', color: '#8E8E93', fontSize: 15, marginTop: 40 },
   emptyContainer: { flex: 1 },
   listContent: { paddingBottom: 90 },
   fab: {
@@ -163,8 +165,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
     elevation: 5,
   },
   fabText: { color: '#fff', fontSize: 30, lineHeight: 34, fontWeight: '300' },

@@ -1,22 +1,24 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback } from 'react';
 import {
-  StyleSheet, View, TextInput, Text, TouchableOpacity, Alert,
+  StyleSheet, View, TextInput, Text, TouchableOpacity,
   InputAccessoryView, Platform, Keyboard,
 } from 'react-native';
+import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import type { Set } from '@/db/types';
 
 interface SetRowProps {
   set: Set;
   previousSet?: Set;
   isBodyweight?: boolean;
-  onUpdate: (setId: number, updates: { weightLbs?: number | null; reps?: number | null; notes?: string | null }) => void;
+  onUpdate: (setId: number, updates: { weightLbs?: number | null; reps?: number | null }) => void;
   onDelete: (setId: number) => void;
   onNext?: () => void;
   onRegisterFirstInput?: (input: TextInput | null) => void;
+  done?: boolean;
+  onToggleDone?: (setId: number) => void;
 }
 
-export function SetRow({ set, previousSet, isBodyweight, onUpdate, onDelete, onNext, onRegisterFirstInput }: SetRowProps) {
-  const [showNotes, setShowNotes] = useState(!!set.notes);
+export function SetRow({ set, previousSet, isBodyweight, onUpdate, onDelete, onNext, onRegisterFirstInput, done, onToggleDone }: SetRowProps) {
   const focusedFieldRef = useRef<'weight' | 'reps' | null>(null);
   const onNextRef = useRef(onNext);
   onNextRef.current = onNext;
@@ -30,13 +32,6 @@ export function SetRow({ set, previousSet, isBodyweight, onUpdate, onDelete, onN
     onRegisterRef.current?.(firstInput);
     return () => { onRegisterRef.current?.(null); };
   }, [isBodyweight]);
-
-  const handleDelete = () => {
-    Alert.alert('Delete Set', 'Remove this set?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => onDelete(set.id) },
-    ]);
-  };
 
   const accessoryId = `set-input-${set.id}`;
 
@@ -54,9 +49,24 @@ export function SetRow({ set, previousSet, isBodyweight, onUpdate, onDelete, onN
 
   const accessoryLabel = isBodyweight || focusedFieldRef.current === 'reps' ? (onNext ? 'Next' : 'Done') : 'Next';
 
+  const renderRightActions = () => (
+    <TouchableOpacity style={styles.deleteAction} onPress={() => onDelete(set.id)}>
+      <Text style={styles.deleteActionText}>Delete</Text>
+    </TouchableOpacity>
+  );
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.setNum}>{set.set_number}</Text>
+    <Swipeable renderRightActions={renderRightActions} overshootRight={false}>
+      <View style={[styles.container, done && styles.containerDone]}>
+      <Text style={[styles.setNum, done && styles.setNumDone]}>{set.set_number}</Text>
+      {previousSet != null ? (
+        <Text style={styles.prev} numberOfLines={1}>
+          {previousSet.weight_lbs != null ? `${previousSet.weight_lbs} × ` : ''}
+          {previousSet.reps ?? '—'}
+        </Text>
+      ) : (
+        <Text style={styles.prev}>—</Text>
+      )}
       {!isBodyweight && (
         <TextInput
           ref={weightRef}
@@ -64,6 +74,7 @@ export function SetRow({ set, previousSet, isBodyweight, onUpdate, onDelete, onN
           keyboardType="decimal-pad"
           value={set.weight_lbs != null ? String(set.weight_lbs) : ''}
           placeholder={previousSet?.weight_lbs != null ? String(previousSet.weight_lbs) : '—'}
+          placeholderTextColor="#636366"
           onChangeText={(v) => onUpdate(set.id, { weightLbs: v ? Number(v) : null })}
           returnKeyType="next"
           blurOnSubmit={false}
@@ -78,6 +89,7 @@ export function SetRow({ set, previousSet, isBodyweight, onUpdate, onDelete, onN
         keyboardType="number-pad"
         value={set.reps != null ? String(set.reps) : ''}
         placeholder={previousSet?.reps != null ? String(previousSet.reps) : '—'}
+        placeholderTextColor="#636366"
         onChangeText={(v) => onUpdate(set.id, { reps: v ? Number(v) : null })}
         returnKeyType={onNext ? 'next' : 'done'}
         blurOnSubmit={!onNext}
@@ -85,26 +97,13 @@ export function SetRow({ set, previousSet, isBodyweight, onUpdate, onDelete, onN
         onSubmitEditing={() => onNextRef.current?.()}
         inputAccessoryViewID={Platform.OS === 'ios' ? accessoryId : undefined}
       />
-      {previousSet != null && (
-        <Text style={styles.prev} numberOfLines={1}>
-          {previousSet.weight_lbs != null ? `${previousSet.weight_lbs} × ` : ''}
-          {previousSet.reps ?? '—'}
-        </Text>
-      )}
-      <TouchableOpacity onPress={() => setShowNotes((s) => !s)} style={styles.noteTap}>
-        <Text style={styles.noteToggle}>Note</Text>
+      <TouchableOpacity
+        style={[styles.checkCircle, done && styles.checkCircleDone]}
+        onPress={() => onToggleDone?.(set.id)}
+        hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+      >
+        <Text style={[styles.checkMark, done && styles.checkMarkDone]}>✓</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={handleDelete}>
-        <Text style={styles.delete}>✕</Text>
-      </TouchableOpacity>
-      {showNotes && (
-        <TextInput
-          style={[styles.input, styles.notesInput]}
-          placeholder="Add note…"
-          value={set.notes ?? ''}
-          onChangeText={(v) => onUpdate(set.id, { notes: v || null })}
-        />
-      )}
       {Platform.OS === 'ios' && (
         <InputAccessoryView nativeID={accessoryId}>
           <View style={styles.accessoryBar}>
@@ -114,7 +113,8 @@ export function SetRow({ set, previousSet, isBodyweight, onUpdate, onDelete, onN
           </View>
         </InputAccessoryView>
       )}
-    </View>
+      </View>
+    </Swipeable>
   );
 }
 
@@ -122,34 +122,65 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
     gap: 8,
     paddingVertical: 6,
     paddingHorizontal: 12,
+    backgroundColor: '#2C2C2E',
   },
-  setNum: { width: 20, textAlign: 'center', color: '#666', fontWeight: '600' },
+  containerDone: {
+    backgroundColor: 'rgba(52, 199, 89, 0.1)',
+  },
+  setNum: { width: 32, textAlign: 'center', color: '#8E8E93', fontWeight: '600' },
+  setNumDone: { color: '#34C759' },
+  checkCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#636366',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkCircleDone: {
+    backgroundColor: '#34C759',
+    borderColor: '#34C759',
+  },
+  checkMark: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#636366',
+    lineHeight: 16,
+  },
+  checkMarkDone: {
+    color: '#fff',
+  },
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#38383A',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
     width: 64,
     textAlign: 'center',
     fontSize: 15,
+    backgroundColor: '#3A3A3C',
+    color: '#FFFFFF',
   },
-  notesInput: { width: 180 },
-  prev: { color: '#999', fontSize: 12, flex: 1 },
-  noteTap: { paddingHorizontal: 2 },
-  noteToggle: { color: '#007AFF', fontSize: 12 },
-  delete: { color: '#FF3B30', fontWeight: '600', paddingHorizontal: 4 },
+  prev: { color: '#8E8E93', fontSize: 12, flex: 1 },
+  deleteAction: {
+    backgroundColor: '#FF3B30',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+  },
+  deleteActionText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   accessoryBar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    backgroundColor: '#f1f1f6',
+    backgroundColor: '#2C2C2E',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#c7c7cc',
+    borderTopColor: '#38383A',
     paddingHorizontal: 8,
     paddingVertical: 6,
   },

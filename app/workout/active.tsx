@@ -113,6 +113,7 @@ export default function ActiveWorkoutScreen() {
             value={sessionName}
             onChangeText={handleNameChange}
             placeholder="Workout name"
+            placeholderTextColor="#636366"
             returnKeyType="done"
           />
           <WorkoutTimer />
@@ -152,19 +153,19 @@ export default function ActiveWorkoutScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fff' },
+  safe: { flex: 1, backgroundColor: '#1C1C1E' },
   header: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#38383A',
     gap: 8,
   },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  nameInput: { flex: 1, fontSize: 20, fontWeight: '700', color: '#000' },
+  nameInput: { flex: 1, fontSize: 20, fontWeight: '700', color: '#FFFFFF' },
   actionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cancelText: { color: '#FF3B30', fontSize: 16 },
+  cancelText: { color: '#8E8E93', fontSize: 16 },
   finishBtn: {
     backgroundColor: '#34C759',
     borderRadius: 10,
@@ -172,17 +173,17 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   finishText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  scroll: { flex: 1 },
+  scroll: { flex: 1, backgroundColor: '#1C1C1E' },
   scrollContent: { padding: 16, paddingBottom: 120 },
-  emptyText: { textAlign: 'center', color: '#999', marginTop: 32, marginBottom: 16 },
+  emptyText: { textAlign: 'center', color: '#8E8E93', marginTop: 32, marginBottom: 16 },
   addExerciseBtn: {
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    borderStyle: 'dashed',
+    borderWidth: 1,
+    borderColor: '#38383A',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     marginTop: 8,
+    backgroundColor: '#2C2C2E',
   },
   addExerciseText: { color: '#007AFF', fontWeight: '600', fontSize: 16 },
 });

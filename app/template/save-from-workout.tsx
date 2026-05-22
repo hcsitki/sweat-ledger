@@ -54,6 +54,7 @@ export default function SaveFromWorkoutScreen() {
             value={name}
             onChangeText={setName}
             placeholder="e.g. Push Day"
+            placeholderTextColor="#636366"
             autoFocus
             returnKeyType="done"
             onSubmitEditing={handleSave}
@@ -77,21 +78,22 @@ export default function SaveFromWorkoutScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#fff' },
+  safeArea: { flex: 1, backgroundColor: '#1C1C1E' },
   flex: { flex: 1 },
   container: { padding: 24, gap: 16 },
 
-  title: { fontSize: 24, fontWeight: '700' },
-  subtitle: { fontSize: 15, color: '#666', lineHeight: 21 },
+  title: { fontSize: 24, fontWeight: '700', color: '#FFFFFF' },
+  subtitle: { fontSize: 15, color: '#8E8E93', lineHeight: 21 },
 
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#38383A',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 17,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#3A3A3C',
+    color: '#FFFFFF',
   },
 
   saveBtn: {
@@ -100,9 +102,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
-  saveBtnDisabled: { backgroundColor: '#99C2FF' },
+  saveBtnDisabled: { backgroundColor: 'rgba(0, 122, 255, 0.4)' },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 
   cancelBtn: { alignItems: 'center', paddingVertical: 8 },
-  cancelBtnText: { color: '#666', fontSize: 16 },
+  cancelBtnText: { color: '#8E8E93', fontSize: 16 },
 });

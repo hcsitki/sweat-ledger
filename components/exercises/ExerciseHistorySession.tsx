@@ -48,15 +48,17 @@ export function ExerciseHistorySession({ session, isBodyweight, subtitle }: Prop
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: '#2C2C2E',
     borderRadius: 12,
     padding: 14,
     gap: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#38383A',
   },
   dateLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#888',
+    color: '#8E8E93',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 2,
@@ -70,17 +72,17 @@ const styles = StyleSheet.create({
   },
   setNumber: {
     fontSize: 14,
-    color: '#888',
+    color: '#8E8E93',
     width: 40,
   },
   setValues: {
     fontSize: 14,
-    color: '#1a1a1a',
+    color: '#FFFFFF',
     flex: 1,
   },
   notes: {
     fontSize: 13,
-    color: '#999',
+    color: '#636366',
     fontStyle: 'italic',
     paddingLeft: 48,
   },

@@ -8,5 +8,5 @@ export function WorkoutTimer() {
 }
 
 const styles = StyleSheet.create({
-  timer: { fontSize: 32, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  timer: { fontSize: 32, fontWeight: '600', fontVariant: ['tabular-nums'], color: '#8E8E93' },
 });

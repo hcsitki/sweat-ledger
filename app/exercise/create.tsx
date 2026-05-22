@@ -98,6 +98,7 @@ export default function CreateExerciseScreen() {
             value={name}
             onChangeText={setName}
             placeholder="e.g. Cable Fly"
+            placeholderTextColor="#636366"
             returnKeyType="done"
             autoFocus={!isEditing}
           />
@@ -122,6 +123,7 @@ export default function CreateExerciseScreen() {
             value={instructions}
             onChangeText={setInstructions}
             placeholder="Describe how to perform this exercise correctly…"
+            placeholderTextColor="#636366"
             multiline
             numberOfLines={5}
             textAlignVertical="top"
@@ -137,32 +139,33 @@ export default function CreateExerciseScreen() {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#f5f5f5' },
+  scroll: { flex: 1, backgroundColor: '#1C1C1E' },
   content: { padding: 16, gap: 20 },
   field: { gap: 8 },
-  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#8E8E93', textTransform: 'uppercase', letterSpacing: 0.5 },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: '#3A3A3C',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
+    color: '#FFFFFF',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#ddd',
+    borderColor: '#38383A',
   },
   textArea: { height: 110, paddingTop: 12 },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
+    backgroundColor: '#2C2C2E',
     borderRadius: 12,
     padding: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#ddd',
+    borderColor: '#38383A',
   },
-  switchLabel: { fontSize: 16, color: '#1a1a1a', fontWeight: '500' },
-  switchSub: { fontSize: 12, color: '#888', marginTop: 2, maxWidth: 220 },
+  switchLabel: { fontSize: 16, color: '#FFFFFF', fontWeight: '500' },
+  switchSub: { fontSize: 12, color: '#8E8E93', marginTop: 2, maxWidth: 220 },
   saveButton: {
     backgroundColor: '#007AFF',
     borderRadius: 12,

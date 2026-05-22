@@ -120,13 +120,13 @@ export default function TemplateDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#fff' },
+  safeArea: { flex: 1, backgroundColor: '#1C1C1E' },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { color: '#999' },
+  loadingText: { color: '#8E8E93' },
 
   scrollContent: { padding: 20, gap: 16, paddingBottom: 100 },
 
-  templateName: { fontSize: 26, fontWeight: '700' },
+  templateName: { fontSize: 26, fontWeight: '700', color: '#FFFFFF' },
 
   actionsRow: { flexDirection: 'row', gap: 12 },
   editBtn: {
@@ -147,22 +147,24 @@ const styles = StyleSheet.create({
   deleteBtnText: { color: '#FF3B30', fontWeight: '500' },
 
   exerciseCard: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#2C2C2E',
     borderRadius: 12,
     padding: 14,
     gap: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#38383A',
   },
-  exerciseName: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
+  exerciseName: { fontSize: 16, fontWeight: '600', marginBottom: 4, color: '#007AFF' },
 
   setHeaderRow: { flexDirection: 'row' },
-  setHeaderText: { color: '#888', fontSize: 12, fontWeight: '600', textTransform: 'uppercase' },
+  setHeaderText: { color: '#8E8E93', fontSize: 12, fontWeight: '600', textTransform: 'uppercase' },
   setRow: { flexDirection: 'row' },
-  setCol: { fontSize: 15 },
-  setColNum: { width: 40, color: '#666' },
+  setCol: { fontSize: 15, color: '#FFFFFF' },
+  setColNum: { width: 40, color: '#8E8E93' },
   setColReps: { flex: 1 },
 
-  noSetsText: { color: '#999', fontSize: 14 },
-  emptyText: { color: '#999', textAlign: 'center', marginTop: 20 },
+  noSetsText: { color: '#8E8E93', fontSize: 14 },
+  emptyText: { color: '#8E8E93', textAlign: 'center', marginTop: 20 },
 
   footer: {
     position: 'absolute',
@@ -170,9 +172,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 16,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    backgroundColor: '#1C1C1E',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#38383A',
   },
   startBtn: {
     backgroundColor: '#007AFF',

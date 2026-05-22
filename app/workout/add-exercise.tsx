@@ -92,6 +92,7 @@ export default function AddExerciseScreen() {
       <TextInput
         style={styles.search}
         placeholder="Search exercises…"
+        placeholderTextColor="#636366"
         value={search}
         onChangeText={setSearch}
         autoFocus
@@ -132,28 +133,29 @@ export default function AddExerciseScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#1C1C1E' },
   search: {
     margin: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#38383A',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#3A3A3C',
+    color: '#FFFFFF',
   },
   sectionHeader: {
     paddingHorizontal: 16,
     paddingVertical: 6,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#1C1C1E',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e5e5',
+    borderBottomColor: '#38383A',
   },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#555',
+    color: '#8E8E93',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
@@ -161,12 +163,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#38383A',
+    backgroundColor: '#2C2C2E',
   },
   rowIndented: {
     paddingLeft: 24,
   },
-  exerciseName: { fontSize: 16, fontWeight: '500' },
-  exerciseMeta: { color: '#888', fontSize: 13, marginTop: 2 },
-  emptyText: { textAlign: 'center', color: '#999', marginTop: 40 },
+  exerciseName: { fontSize: 16, fontWeight: '500', color: '#FFFFFF' },
+  exerciseMeta: { color: '#8E8E93', fontSize: 13, marginTop: 2 },
+  emptyText: { textAlign: 'center', color: '#8E8E93', marginTop: 40 },
 });

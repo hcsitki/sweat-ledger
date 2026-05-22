@@ -62,15 +62,17 @@ export function WorkoutDetailExercise({ exercise_name, is_bodyweight, sets }: Pr
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: '#2C2C2E',
     borderRadius: 12,
     padding: 14,
     gap: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#38383A',
   },
-  exerciseName: { fontSize: 16, fontWeight: '600', color: '#1a1a1a', marginBottom: 6 },
+  exerciseName: { fontSize: 16, fontWeight: '600', color: '#007AFF', marginBottom: 6 },
 
   headerRow: { flexDirection: 'row', paddingVertical: 2 },
-  headerText: { fontSize: 11, fontWeight: '600', color: '#aaa', textTransform: 'uppercase' },
+  headerText: { fontSize: 11, fontWeight: '600', color: '#8E8E93', textTransform: 'uppercase' },
 
   setRow: {
     flexDirection: 'row',
@@ -79,18 +81,18 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 4,
   },
-  bestSetRow: { backgroundColor: '#fffbeb' },
+  bestSetRow: { backgroundColor: 'rgba(0, 122, 255, 0.1)' },
 
   col: { fontSize: 15 },
-  colSet: { width: 36, color: '#888' },
+  colSet: { width: 36, color: '#8E8E93' },
   colWeight: { width: 72 },
   colReps: { width: 48 },
   colNotes: { flex: 1 },
 
-  setValue: { color: '#1a1a1a' },
+  setValue: { color: '#FFFFFF' },
 
   notesCell: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  notesText: { fontSize: 13, color: '#888', flex: 1 },
+  notesText: { fontSize: 13, color: '#8E8E93', flex: 1 },
 
   prBadge: {
     backgroundColor: '#FF3B30',

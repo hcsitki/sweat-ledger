@@ -138,10 +138,10 @@ export default function LogScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#fff' },
+  safeArea: { flex: 1, backgroundColor: '#1C1C1E' },
   listContent: { padding: 20, gap: 12 },
 
-  screenTitle: { fontSize: 28, fontWeight: '700', marginBottom: 4 },
+  screenTitle: { fontSize: 28, fontWeight: '700', marginBottom: 4, color: '#FFFFFF' },
 
   startBtn: {
     backgroundColor: '#007AFF',
@@ -160,24 +160,26 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
   },
-  sectionTitle: { fontSize: 20, fontWeight: '600' },
+  sectionTitle: { fontSize: 20, fontWeight: '600', color: '#FFFFFF' },
   newBtn: { fontSize: 16, color: '#007AFF', fontWeight: '500' },
 
   emptyState: { paddingVertical: 24, alignItems: 'center', gap: 6 },
-  emptyText: { fontSize: 16, fontWeight: '500', color: '#666' },
-  emptySubtext: { fontSize: 14, color: '#999', textAlign: 'center' },
+  emptyText: { fontSize: 16, fontWeight: '500', color: '#8E8E93' },
+  emptySubtext: { fontSize: 14, color: '#636366', textAlign: 'center' },
 
   templateCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#2C2C2E',
     borderRadius: 12,
     padding: 14,
     gap: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#38383A',
   },
   templateInfo: { flex: 1 },
-  templateName: { fontSize: 16, fontWeight: '600' },
-  templateMeta: { fontSize: 13, color: '#666', marginTop: 2 },
+  templateName: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+  templateMeta: { fontSize: 13, color: '#8E8E93', marginTop: 2 },
 
   startTemplateBtn: {
     backgroundColor: '#007AFF',
@@ -194,7 +196,7 @@ const styles = StyleSheet.create({
     gap: 16,
     padding: 24,
   },
-  bannerTitle: { fontSize: 28, fontWeight: '700' },
+  bannerTitle: { fontSize: 28, fontWeight: '700', color: '#FFFFFF' },
   resumeBtn: {
     backgroundColor: '#34C759',
     borderRadius: 14,

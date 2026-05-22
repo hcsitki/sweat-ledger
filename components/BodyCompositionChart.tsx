@@ -184,14 +184,14 @@ export function BodyCompositionChart({ points, isLoading, timeRange, onTimeRange
 
 const styles = StyleSheet.create({
   rangeRow: { flexDirection: 'row', gap: 6, marginBottom: 12 },
-  rangeBtn: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8, backgroundColor: '#f5f5f5' },
+  rangeBtn: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8, backgroundColor: '#3A3A3C' },
   rangeBtnActive: { backgroundColor: '#007AFF' },
-  rangeBtnText: { fontSize: 13, fontWeight: '500', color: '#666' },
+  rangeBtnText: { fontSize: 13, fontWeight: '500', color: '#8E8E93' },
   rangeBtnTextActive: { color: '#fff' },
   placeholder: { height: CHART_H, justifyContent: 'center', alignItems: 'center' },
-  emptyText: { color: '#bbb', fontSize: 14 },
+  emptyText: { color: '#636366', fontSize: 14 },
   legend: { flexDirection: 'row', gap: 16, marginTop: 6 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendSwatch: { width: 16, height: 2.5, borderRadius: 1 },
-  legendText: { fontSize: 12, color: '#666' },
+  legendText: { fontSize: 12, color: '#8E8E93' },
 });

@@ -3,6 +3,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SQLiteProvider } from 'expo-sqlite';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -22,6 +23,7 @@ export default function RootLayout() {
   }, []);
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <SQLiteProvider databaseName="sweat-ledger.db" onInit={migrateDb}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <SessionRestorer />
@@ -52,8 +54,9 @@ export default function RootLayout() {
           <Stack.Screen name="import/map-exercises" options={{ title: 'Map Exercises' }} />
           <Stack.Screen name="import/confirm" options={{ title: 'Review Import' }} />
         </Stack>
-        <StatusBar style="auto" />
+        <StatusBar style="light" />
       </ThemeProvider>
     </SQLiteProvider>
+    </GestureHandlerRootView>
   );
 }
