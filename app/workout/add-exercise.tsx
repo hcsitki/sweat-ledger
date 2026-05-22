@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   View,
-  FlatList,
+  SectionList,
   TextInput,
   Text,
   TouchableOpacity,
@@ -20,6 +20,8 @@ const MUSCLE_GROUPS = [
   'All', 'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps',
   'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Core',
 ];
+
+type Section = { title: string; data: Exercise[] };
 
 export default function AddExerciseScreen() {
   const db = useSQLiteContext();
@@ -41,9 +43,24 @@ export default function AddExerciseScreen() {
     ).then(setExercises);
   }, [db, selectedGroup]);
 
-  const filtered = search
-    ? exercises.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()))
-    : exercises;
+  const sections = useMemo<Section[]>(() => {
+    const source = search
+      ? exercises.filter(
+          (e) =>
+            e.name.toLowerCase().includes(search.toLowerCase()) ||
+            e.base_name.toLowerCase().includes(search.toLowerCase())
+        )
+      : exercises;
+
+    const map = new Map<string, Exercise[]>();
+    for (const ex of source) {
+      const key = ex.base_name || ex.name;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(ex);
+    }
+
+    return Array.from(map.entries()).map(([title, data]) => ({ title, data }));
+  }, [exercises, search]);
 
   const setPendingExercise = useTemplateEditorStore((s) => s.setPendingExercise);
 
@@ -81,14 +98,27 @@ export default function AddExerciseScreen() {
         returnKeyType="search"
       />
       <FilterBar options={MUSCLE_GROUPS} selected={selectedGroup} onSelect={setSelectedGroup} />
-      <FlatList
-        data={filtered}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.row} onPress={() => handleSelect(item)}>
-            <Text style={styles.exerciseName}>{item.name}</Text>
+        renderSectionHeader={({ section }) =>
+          section.data.length > 1 ? (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{section.title}</Text>
+            </View>
+          ) : null
+        }
+        renderItem={({ item, section }) => (
+          <TouchableOpacity
+            style={[styles.row, section.data.length > 1 && styles.rowIndented]}
+            onPress={() => handleSelect(item)}
+          >
+            <Text style={styles.exerciseName}>
+              {section.data.length > 1 ? item.equipment_type : item.name}
+            </Text>
             <Text style={styles.exerciseMeta}>
-              {item.muscle_group} · {item.equipment_type}
+              {item.muscle_group}
+              {section.data.length === 1 ? ` · ${item.equipment_type}` : ''}
             </Text>
           </TouchableOpacity>
         )}
@@ -113,11 +143,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#f5f5f5',
   },
+  sectionHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    backgroundColor: '#f5f5f5',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e5e5e5',
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#555',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
   row: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#f0f0f0',
+  },
+  rowIndented: {
+    paddingLeft: 24,
   },
   exerciseName: { fontSize: 16, fontWeight: '500' },
   exerciseMeta: { color: '#888', fontSize: 13, marginTop: 2 },

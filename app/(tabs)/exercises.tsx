@@ -10,10 +10,9 @@ import {
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { getExercises, getPerformedExerciseIds } from '@/db/queries/exercises';
+import { getExerciseGroups } from '@/db/queries/exercises';
 import { FilterBar } from '@/components/exercises/FilterBar';
-import { ExerciseListItem } from '@/components/exercises/ExerciseListItem';
-import type { Exercise } from '@/db/types';
+import type { ExerciseGroup } from '@/db/types';
 
 const MUSCLE_GROUPS = [
   'All', 'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps',
@@ -26,25 +25,20 @@ const EQUIPMENT_TYPES = [
 
 export default function ExercisesScreen() {
   const db = useSQLiteContext();
-  const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [performedIds, setPerformedIds] = useState<Set<number>>(new Set());
+  const [groups, setGroups] = useState<ExerciseGroup[]>([]);
   const [search, setSearch] = useState('');
   const [muscleGroup, setMuscleGroup] = useState('All');
   const [equipmentType, setEquipmentType] = useState('All');
   const [performedOnly, setPerformedOnly] = useState(false);
 
   const load = useCallback(async () => {
-    const results = await getExercises(db, {
+    const results = await getExerciseGroups(db, {
       muscleGroup: muscleGroup !== 'All' ? muscleGroup : undefined,
       equipmentType: equipmentType !== 'All' ? equipmentType : undefined,
       performedOnly,
     });
-    setExercises(results);
+    setGroups(results);
   }, [db, muscleGroup, equipmentType, performedOnly]);
-
-  const loadPerformedIds = useCallback(async () => {
-    setPerformedIds(await getPerformedExerciseIds(db));
-  }, [db]);
 
   useFocusEffect(
     useCallback(() => {
@@ -52,15 +46,9 @@ export default function ExercisesScreen() {
     }, [load])
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      void loadPerformedIds();
-    }, [loadPerformedIds])
-  );
-
   const filtered = search
-    ? exercises.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()))
-    : exercises;
+    ? groups.filter((g) => g.base_name.toLowerCase().includes(search.toLowerCase()))
+    : groups;
 
   return (
     <View style={styles.container}>
@@ -83,13 +71,24 @@ export default function ExercisesScreen() {
 
       <FlatList
         data={filtered}
-        keyExtractor={(item) => String(item.id)}
+        keyExtractor={(item) => item.base_name}
         renderItem={({ item }) => (
-          <ExerciseListItem
-            exercise={item}
-            hasStats={performedIds.has(item.id)}
-            onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: item.id } })}
-          />
+          <TouchableOpacity
+            style={styles.row}
+            activeOpacity={0.7}
+            onPress={() => router.push({ pathname: '/exercise/group', params: { baseName: item.base_name } })}
+          >
+            <View style={styles.main}>
+              <Text style={styles.name}>{item.base_name}</Text>
+              <Text style={styles.meta}>
+                {item.muscle_group}
+                {item.variant_count > 1 ? ` · ${item.variant_count} variations` : ''}
+              </Text>
+            </View>
+            <View style={styles.right}>
+              {item.has_performed === 1 && <View style={styles.dot} />}
+            </View>
+          </TouchableOpacity>
         )}
         ListEmptyComponent={
           <Text style={styles.empty}>
@@ -135,6 +134,20 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e5e5e5',
   },
   toggleLabel: { fontSize: 15, color: '#333' },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#e5e5e5',
+    backgroundColor: '#fff',
+  },
+  main: { flex: 1 },
+  name: { fontSize: 16, fontWeight: '500', color: '#1a1a1a' },
+  meta: { fontSize: 13, color: '#888', marginTop: 2 },
+  right: { flexDirection: 'row', alignItems: 'center' },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#007AFF' },
   empty: { textAlign: 'center', color: '#999', fontSize: 15, marginTop: 40 },
   emptyContainer: { flex: 1 },
   listContent: { paddingBottom: 90 },

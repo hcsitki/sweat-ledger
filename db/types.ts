@@ -1,12 +1,33 @@
 export interface Exercise {
   id: number;
   name: string;
+  base_name: string;
   muscle_group: string;
   equipment_type: string;
   is_bodyweight: number;
   is_custom: number;
   instructions: string | null;
   created_at: number;
+}
+
+export interface ExerciseGroup {
+  base_name: string;
+  muscle_group: string;
+  variant_count: number;
+  has_performed: number; // 0 or 1
+}
+
+export interface ExerciseGroupHistorySession {
+  workout_exercise_id: number;
+  session_id: number;
+  session_name: string;
+  started_at: number;
+  exercise_id: number;
+  exercise_name: string;
+  equipment_type: string;
+  is_bodyweight: number;
+  session_1rm: number | null;
+  sets: ExerciseHistorySet[];
 }
 
 export interface ExerciseStats {

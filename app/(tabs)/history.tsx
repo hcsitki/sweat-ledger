@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
-import { View, FlatList, Text, StyleSheet } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useLayoutEffect, useState } from 'react';
+import { View, FlatList, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { getCompletedWorkouts } from '@/db/queries/history';
 import { WorkoutHistoryItem } from '@/components/history/WorkoutHistoryItem';
@@ -8,7 +8,18 @@ import type { CompletedWorkoutSummary } from '@/db/types';
 
 export default function HistoryScreen() {
   const db = useSQLiteContext();
+  const navigation = useNavigation();
   const [workouts, setWorkouts] = useState<CompletedWorkoutSummary[]>([]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity onPress={() => router.push('/import/' as any)} style={{ marginRight: 4 }}>
+          <Text style={{ color: '#007AFF', fontSize: 16 }}>Import</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   useFocusEffect(
     useCallback(() => {

@@ -48,6 +48,9 @@ export default function RootLayout() {
             name="template/save-from-workout"
             options={{ title: 'Save as Template', presentation: 'modal' }}
           />
+          <Stack.Screen name="import/index" options={{ title: 'Import Workouts' }} />
+          <Stack.Screen name="import/map-exercises" options={{ title: 'Map Exercises' }} />
+          <Stack.Screen name="import/confirm" options={{ title: 'Review Import' }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>

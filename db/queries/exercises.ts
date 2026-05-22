@@ -1,5 +1,5 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
-import { type Exercise, type ExerciseStats, type ExerciseHistorySession, type ExerciseHistorySet } from '../types';
+import { type Exercise, type ExerciseGroup, type ExerciseGroupHistorySession, type ExerciseStats, type ExerciseHistorySession, type ExerciseHistorySet } from '../types';
 import { calculateEpley1RM } from '@/utils/calculations';
 
 interface ExerciseFilters {
@@ -34,6 +34,192 @@ export async function getExercises(
     `SELECT e.* FROM exercises e ${where} ORDER BY e.name ASC`,
     params
   );
+}
+
+export async function getExerciseGroups(
+  db: SQLiteDatabase,
+  filters?: ExerciseFilters
+): Promise<ExerciseGroup[]> {
+  const conditions: string[] = [];
+  const params: (string | number)[] = [];
+
+  if (filters?.muscleGroup) {
+    conditions.push('e.muscle_group = ?');
+    params.push(filters.muscleGroup);
+  }
+  if (filters?.equipmentType) {
+    conditions.push(
+      `e.base_name IN (SELECT DISTINCT base_name FROM exercises WHERE equipment_type = ?)`
+    );
+    params.push(filters.equipmentType);
+  }
+  if (filters?.performedOnly) {
+    conditions.push(
+      `e.base_name IN (
+        SELECT DISTINCT e2.base_name FROM exercises e2
+        JOIN workout_exercises we ON we.exercise_id = e2.id
+        JOIN workout_sessions ws ON we.session_id = ws.id
+        WHERE ws.status = 'completed'
+      )`
+    );
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  return db.getAllAsync<ExerciseGroup>(
+    `SELECT
+       e.base_name,
+       e.muscle_group,
+       COUNT(e.id) AS variant_count,
+       MAX(CASE WHEN EXISTS (
+         SELECT 1 FROM workout_exercises we
+         JOIN workout_sessions ws ON we.session_id = ws.id
+         WHERE we.exercise_id = e.id AND ws.status = 'completed'
+       ) THEN 1 ELSE 0 END) AS has_performed
+     FROM exercises e
+     ${where}
+     GROUP BY e.base_name, e.muscle_group
+     ORDER BY e.base_name ASC`,
+    params
+  );
+}
+
+export async function getExercisesByBaseName(
+  db: SQLiteDatabase,
+  baseName: string
+): Promise<Exercise[]> {
+  return db.getAllAsync<Exercise>(
+    `SELECT * FROM exercises WHERE base_name = ? ORDER BY is_custom ASC, equipment_type ASC`,
+    baseName
+  );
+}
+
+export async function getExerciseGroupStats(
+  db: SQLiteDatabase,
+  baseName: string
+): Promise<ExerciseStats> {
+  const row = await db.getFirstAsync<{
+    best_set_weight: number | null;
+    best_set_volume: number | null;
+    best_session_volume: number | null;
+    estimated_1rm: number | null;
+  }>(
+    `WITH session_vols AS (
+       SELECT ws.id AS session_id, SUM(s.weight_lbs * s.reps) AS vol
+       FROM sets s
+       JOIN workout_exercises we ON s.workout_exercise_id = we.id
+       JOIN workout_sessions ws ON we.session_id = ws.id
+       JOIN exercises e ON e.id = we.exercise_id
+       WHERE e.base_name = ?
+         AND ws.status = 'completed'
+         AND s.weight_lbs IS NOT NULL
+         AND s.reps IS NOT NULL
+       GROUP BY ws.id
+     )
+     SELECT
+       MAX(s.weight_lbs) AS best_set_weight,
+       MAX(s.weight_lbs * s.reps) AS best_set_volume,
+       MAX(CASE WHEN s.reps <= 15 AND s.reps > 0
+            THEN s.weight_lbs * (1.0 + CAST(s.reps AS REAL) / 30.0)
+            ELSE NULL END) AS estimated_1rm,
+       (SELECT MAX(vol) FROM session_vols) AS best_session_volume
+     FROM sets s
+     JOIN workout_exercises we ON s.workout_exercise_id = we.id
+     JOIN workout_sessions ws ON we.session_id = ws.id
+     JOIN exercises e ON e.id = we.exercise_id
+     WHERE e.base_name = ?
+       AND ws.status = 'completed'
+       AND s.weight_lbs IS NOT NULL
+       AND s.reps IS NOT NULL`,
+    baseName,
+    baseName
+  );
+
+  return {
+    best_set_weight: row?.best_set_weight ?? null,
+    best_set_volume: row?.best_set_volume ?? null,
+    best_session_volume: row?.best_session_volume ?? null,
+    estimated_1rm: row?.estimated_1rm ?? null,
+  };
+}
+
+export async function getExerciseGroupHistory(
+  db: SQLiteDatabase,
+  baseName: string
+): Promise<ExerciseGroupHistorySession[]> {
+  const rows = await db.getAllAsync<{
+    workout_exercise_id: number;
+    session_id: number;
+    session_name: string;
+    started_at: number;
+    exercise_id: number;
+    exercise_name: string;
+    equipment_type: string;
+    is_bodyweight: number;
+    set_id: number;
+    set_number: number;
+    weight_lbs: number | null;
+    reps: number | null;
+    notes: string | null;
+  }>(
+    `SELECT
+       we.id AS workout_exercise_id,
+       ws.id AS session_id,
+       ws.name AS session_name,
+       ws.started_at,
+       e.id AS exercise_id,
+       e.name AS exercise_name,
+       e.equipment_type,
+       e.is_bodyweight,
+       s.id AS set_id,
+       s.set_number,
+       s.weight_lbs,
+       s.reps,
+       s.notes
+     FROM workout_sessions ws
+     JOIN workout_exercises we ON we.session_id = ws.id
+     JOIN exercises e ON e.id = we.exercise_id
+     JOIN sets s ON s.workout_exercise_id = we.id
+     WHERE e.base_name = ?
+       AND ws.status = 'completed'
+     ORDER BY ws.started_at ASC, we.id ASC, s.set_number ASC`,
+    baseName
+  );
+
+  const sessionMap = new Map<number, ExerciseGroupHistorySession>();
+  for (const row of rows) {
+    if (!sessionMap.has(row.workout_exercise_id)) {
+      sessionMap.set(row.workout_exercise_id, {
+        workout_exercise_id: row.workout_exercise_id,
+        session_id: row.session_id,
+        session_name: row.session_name,
+        started_at: row.started_at,
+        exercise_id: row.exercise_id,
+        exercise_name: row.exercise_name,
+        equipment_type: row.equipment_type,
+        is_bodyweight: row.is_bodyweight,
+        session_1rm: null,
+        sets: [],
+      });
+    }
+    const session = sessionMap.get(row.workout_exercise_id)!;
+    const set: ExerciseHistorySet = {
+      id: row.set_id,
+      set_number: row.set_number,
+      weight_lbs: row.weight_lbs,
+      reps: row.reps,
+      notes: row.notes,
+    };
+    session.sets.push(set);
+
+    if (row.weight_lbs != null && row.reps != null) {
+      const rm = calculateEpley1RM(row.weight_lbs, row.reps);
+      if (rm != null && (session.session_1rm == null || rm > session.session_1rm)) {
+        session.session_1rm = rm;
+      }
+    }
+  }
+
+  return Array.from(sessionMap.values());
 }
 
 export async function getExerciseById(
@@ -101,7 +287,8 @@ export async function createCustomExercise(
   }
 ): Promise<number> {
   const result = await db.runAsync(
-    'INSERT INTO exercises (name, muscle_group, equipment_type, is_bodyweight, is_custom, instructions) VALUES (?, ?, ?, ?, 1, ?)',
+    'INSERT INTO exercises (name, base_name, muscle_group, equipment_type, is_bodyweight, is_custom, instructions) VALUES (?, ?, ?, ?, ?, 1, ?)',
+    data.name,
     data.name,
     data.muscleGroup,
     data.equipmentType,
@@ -123,7 +310,8 @@ export async function updateCustomExercise(
   }
 ): Promise<void> {
   await db.runAsync(
-    'UPDATE exercises SET name = ?, muscle_group = ?, equipment_type = ?, is_bodyweight = ?, instructions = ? WHERE id = ? AND is_custom = 1',
+    'UPDATE exercises SET name = ?, base_name = ?, muscle_group = ?, equipment_type = ?, is_bodyweight = ?, instructions = ? WHERE id = ? AND is_custom = 1',
+    data.name,
     data.name,
     data.muscleGroup,
     data.equipmentType,

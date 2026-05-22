@@ -4,6 +4,7 @@ import type { ExerciseHistorySession as Session } from '@/db/types';
 interface Props {
   session: Session;
   isBodyweight: boolean;
+  subtitle?: string;
 }
 
 function formatDate(ts: number): string {
@@ -25,10 +26,11 @@ function setLabel(weight: number | null, reps: number | null, isBodyweight: bool
   return `${weightStr} × ${repsStr}`;
 }
 
-export function ExerciseHistorySession({ session, isBodyweight }: Props) {
+export function ExerciseHistorySession({ session, isBodyweight, subtitle }: Props) {
   return (
     <View style={styles.card}>
       <Text style={styles.dateLabel}>{formatDate(session.started_at)}</Text>
+      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       {session.sets.map((set) => (
         <View key={set.id} style={styles.setBlock}>
           <View style={styles.setRow}>
@@ -81,5 +83,11 @@ const styles = StyleSheet.create({
     color: '#999',
     fontStyle: 'italic',
     paddingLeft: 48,
+  },
+  subtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#007AFF',
+    marginBottom: 2,
   },
 });
