@@ -8,7 +8,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useWorkoutStore } from '@/store/workout';
@@ -18,9 +18,19 @@ import { deleteWorkoutExercise } from '@/db/queries/sets';
 import { ExerciseCard } from '@/components/workout/ExerciseCard';
 import { WorkoutTimer } from '@/components/workout/WorkoutTimer';
 import { RestTimerBar } from '@/components/workout/RestTimerBar';
+import { CustomKeyboard, KEYBOARD_CONTENT_HEIGHT } from '@/components/workout/CustomKeyboard';
+import { WorkoutKeyboardProvider, useWorkoutKeyboard } from '@/context/WorkoutKeyboardContext';
 import { getElapsedSeconds } from '@/utils/calculations';
 
 export default function ActiveWorkoutScreen() {
+  return (
+    <WorkoutKeyboardProvider>
+      <ActiveContent />
+    </WorkoutKeyboardProvider>
+  );
+}
+
+function ActiveContent() {
   const db = useSQLiteContext();
   const sessionId = useWorkoutStore((s) => s.sessionId);
   const sessionName = useWorkoutStore((s) => s.sessionName);
@@ -29,6 +39,13 @@ export default function ActiveWorkoutScreen() {
   const setSessionName = useWorkoutStore((s) => s.setSessionName);
   const removeExerciseFromSession = useWorkoutStore((s) => s.removeExerciseFromSession);
   const clearWorkout = useWorkoutStore((s) => s.clearWorkout);
+
+  const { mode } = useWorkoutKeyboard();
+  const insets = useSafeAreaInsets();
+  const keyboardH = mode !== 'hidden' ? KEYBOARD_CONTENT_HEIGHT + insets.bottom : 0;
+
+  // Each ExerciseCard registers a "focus first input" fn here
+  const exerciseFocusers = useRef<Map<number, () => void>>(new Map());
 
   const nameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -58,7 +75,6 @@ export default function ActiveWorkoutScreen() {
           clearWorkout();
           router.replace(`/(tabs)?justFinished=${finishedSessionId}`);
 
-          // Fire-and-forget: write to Apple Health and persist calories
           const capturedDb = db;
           (async () => {
             try {
@@ -105,7 +121,7 @@ export default function ActiveWorkoutScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <TextInput
@@ -128,14 +144,28 @@ export default function ActiveWorkoutScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        {workoutExercises.map((we) => (
-          <ExerciseCard
-            key={we.workoutExerciseId}
-            workoutExercise={we}
-            onDeleteExercise={handleDeleteExercise}
-          />
-        ))}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: keyboardH + 24 }]}
+        keyboardShouldPersistTaps="handled"
+      >
+        {workoutExercises.map((we, idx) => {
+          const nextExercise = workoutExercises[idx + 1];
+          return (
+            <ExerciseCard
+              key={we.workoutExerciseId}
+              workoutExercise={we}
+              onDeleteExercise={handleDeleteExercise}
+              onRegisterFocusFirst={(fn) => {
+                if (fn) exerciseFocusers.current.set(we.workoutExerciseId, fn);
+                else exerciseFocusers.current.delete(we.workoutExerciseId);
+              }}
+              onNextExercise={nextExercise
+                ? () => exerciseFocusers.current.get(nextExercise.workoutExerciseId)?.()
+                : undefined}
+            />
+          );
+        })}
         {workoutExercises.length === 0 && (
           <Text style={styles.emptyText}>Add an exercise to get started.</Text>
         )}
@@ -147,7 +177,8 @@ export default function ActiveWorkoutScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      <RestTimerBar />
+      {mode === 'hidden' && <RestTimerBar />}
+      <CustomKeyboard />
     </SafeAreaView>
   );
 }
@@ -174,7 +205,7 @@ const styles = StyleSheet.create({
   },
   finishText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   scroll: { flex: 1, backgroundColor: '#1C1C1E' },
-  scrollContent: { padding: 16, paddingBottom: 120 },
+  scrollContent: { padding: 16 },
   emptyText: { textAlign: 'center', color: '#8E8E93', marginTop: 32, marginBottom: 16 },
   addExerciseBtn: {
     borderWidth: 1,

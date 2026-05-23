@@ -1,10 +1,8 @@
-import { useRef, useEffect, useCallback } from 'react';
-import {
-  StyleSheet, View, TextInput, Text, TouchableOpacity,
-  InputAccessoryView, Platform, Keyboard,
-} from 'react-native';
+import { useRef, useEffect, useCallback, useState } from 'react';
+import { StyleSheet, View, TextInput, Text, TouchableOpacity } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import type { Set } from '@/db/types';
+import { useWorkoutKeyboard } from '@/context/WorkoutKeyboardContext';
 
 interface SetRowProps {
   set: Set;
@@ -12,20 +10,44 @@ interface SetRowProps {
   isBodyweight?: boolean;
   onUpdate: (setId: number, updates: { weightLbs?: number | null; reps?: number | null }) => void;
   onDelete: (setId: number) => void;
-  onNext?: () => void;
+  onDoneFromNext?: () => void;
   onRegisterFirstInput?: (input: TextInput | null) => void;
   done?: boolean;
   onToggleDone?: (setId: number) => void;
 }
 
-export function SetRow({ set, previousSet, isBodyweight, onUpdate, onDelete, onNext, onRegisterFirstInput, done, onToggleDone }: SetRowProps) {
-  const focusedFieldRef = useRef<'weight' | 'reps' | null>(null);
-  const onNextRef = useRef(onNext);
-  onNextRef.current = onNext;
-  const onRegisterRef = useRef(onRegisterFirstInput);
-  onRegisterRef.current = onRegisterFirstInput;
+export function SetRow({
+  set, previousSet, isBodyweight,
+  onUpdate, onDelete, onDoneFromNext, onRegisterFirstInput,
+  done, onToggleDone,
+}: SetRowProps) {
+  const { showNumber, activeNodeRef } = useWorkoutKeyboard();
+
+  // Local buffered values — synced from props only when the field is not focused
+  const [localWeight, setLocalWeight] = useState(set.weight_lbs != null ? String(set.weight_lbs) : '');
+  const [localReps, setLocalReps] = useState(set.reps != null ? String(set.reps) : '');
+  const weightFocused = useRef(false);
+  const repsFocused = useRef(false);
+
   const weightRef = useRef<TextInput>(null);
   const repsRef = useRef<TextInput>(null);
+
+  const onRegisterRef = useRef(onRegisterFirstInput);
+  onRegisterRef.current = onRegisterFirstInput;
+  const onDoneFromNextRef = useRef(onDoneFromNext);
+  onDoneFromNextRef.current = onDoneFromNext;
+
+  // Sync from DB when not focused
+  useEffect(() => {
+    if (!weightFocused.current) {
+      setLocalWeight(set.weight_lbs != null ? String(set.weight_lbs) : '');
+    }
+  }, [set.weight_lbs]);
+  useEffect(() => {
+    if (!repsFocused.current) {
+      setLocalReps(set.reps != null ? String(set.reps) : '');
+    }
+  }, [set.reps]);
 
   useEffect(() => {
     const firstInput = !isBodyweight ? weightRef.current : repsRef.current;
@@ -33,21 +55,82 @@ export function SetRow({ set, previousSet, isBodyweight, onUpdate, onDelete, onN
     return () => { onRegisterRef.current?.(null); };
   }, [isBodyweight]);
 
-  const accessoryId = `set-input-${set.id}`;
+  const handleFocusWeight = useCallback(() => {
+    weightFocused.current = true;
+    activeNodeRef.current = weightRef.current;
+    showNumber({
+      onKey: (k) => {
+        if (k === '.') {
+          setLocalWeight((prev) => {
+            if (prev.includes('.')) return prev;
+            const next = prev + k;
+            onUpdate(set.id, { weightLbs: Number(next) || null });
+            return next;
+          });
+          return;
+        }
+        setLocalWeight((prev) => {
+          const next = prev + k;
+          onUpdate(set.id, { weightLbs: Number(next) || null });
+          return next;
+        });
+      },
+      onBackspace: () => {
+        setLocalWeight((prev) => {
+          const next = prev.slice(0, -1);
+          onUpdate(set.id, { weightLbs: next ? Number(next) : null });
+          return next;
+        });
+      },
+      onIncrement: (delta) => {
+        setLocalWeight((prev) => {
+          const next = Math.max(0, (Number(prev) || 0) + delta);
+          const str = Number.isInteger(next) ? String(next) : String(next);
+          onUpdate(set.id, { weightLbs: next });
+          return str;
+        });
+      },
+      onNext: () => repsRef.current?.focus(),
+    });
+  }, [set.id, onUpdate, showNumber, activeNodeRef]);
 
-  // Use onPressIn (fires at touch-start) so focus transfers before the native blur event
-  // that would otherwise dismiss the keyboard.
-  const handleAccessoryNext = useCallback(() => {
-    if (!isBodyweight && focusedFieldRef.current !== 'reps') {
-      repsRef.current?.focus();
-    } else if (onNextRef.current) {
-      onNextRef.current();
-    } else {
-      Keyboard.dismiss();
-    }
-  }, [isBodyweight]);
+  const handleFocusReps = useCallback(() => {
+    repsFocused.current = true;
+    activeNodeRef.current = repsRef.current;
+    showNumber({
+      onKey: (k) => {
+        if (k === '.') return; // no decimals on reps
+        setLocalReps((prev) => {
+          const next = prev + k;
+          onUpdate(set.id, { reps: Number(next) || null });
+          return next;
+        });
+      },
+      onBackspace: () => {
+        setLocalReps((prev) => {
+          const next = prev.slice(0, -1);
+          onUpdate(set.id, { reps: next ? Number(next) : null });
+          return next;
+        });
+      },
+      onIncrement: (delta) => {
+        setLocalReps((prev) => {
+          const next = Math.max(0, Math.round((Number(prev) || 0) + delta));
+          onUpdate(set.id, { reps: next });
+          return String(next);
+        });
+      },
+      onNext: () => onDoneFromNextRef.current?.(),
+    });
+  }, [set.id, onUpdate, showNumber, activeNodeRef]);
 
-  const accessoryLabel = isBodyweight || focusedFieldRef.current === 'reps' ? (onNext ? 'Next' : 'Done') : 'Next';
+  const handleBlurWeight = useCallback(() => {
+    weightFocused.current = false;
+  }, []);
+
+  const handleBlurReps = useCallback(() => {
+    repsFocused.current = false;
+  }, []);
 
   const renderRightActions = () => (
     <TouchableOpacity style={styles.deleteAction} onPress={() => onDelete(set.id)}>
@@ -58,61 +141,48 @@ export function SetRow({ set, previousSet, isBodyweight, onUpdate, onDelete, onN
   return (
     <Swipeable renderRightActions={renderRightActions} overshootRight={false}>
       <View style={[styles.container, done && styles.containerDone]}>
-      <Text style={[styles.setNum, done && styles.setNumDone]}>{set.set_number}</Text>
-      {previousSet != null ? (
-        <Text style={styles.prev} numberOfLines={1}>
-          {previousSet.weight_lbs != null ? `${previousSet.weight_lbs} × ` : ''}
-          {previousSet.reps ?? '—'}
-        </Text>
-      ) : (
-        <Text style={styles.prev}>—</Text>
-      )}
-      {!isBodyweight && (
+        <Text style={[styles.setNum, done && styles.setNumDone]}>{set.set_number}</Text>
+        {previousSet != null ? (
+          <Text style={styles.prev} numberOfLines={1}>
+            {previousSet.weight_lbs != null ? `${previousSet.weight_lbs} × ` : ''}
+            {previousSet.reps ?? '—'}
+          </Text>
+        ) : (
+          <Text style={styles.prev}>—</Text>
+        )}
+        {!isBodyweight && (
+          <TextInput
+            ref={weightRef}
+            style={styles.input}
+            showSoftInputOnFocus={false}
+            value={localWeight}
+            placeholder={previousSet?.weight_lbs != null ? String(previousSet.weight_lbs) : '—'}
+            placeholderTextColor="#636366"
+            onFocus={handleFocusWeight}
+            onBlur={handleBlurWeight}
+            onChangeText={setLocalWeight}
+            caretHidden={false}
+          />
+        )}
         <TextInput
-          ref={weightRef}
+          ref={repsRef}
           style={styles.input}
-          keyboardType="decimal-pad"
-          value={set.weight_lbs != null ? String(set.weight_lbs) : ''}
-          placeholder={previousSet?.weight_lbs != null ? String(previousSet.weight_lbs) : '—'}
+          showSoftInputOnFocus={false}
+          value={localReps}
+          placeholder={previousSet?.reps != null ? String(previousSet.reps) : '—'}
           placeholderTextColor="#636366"
-          onChangeText={(v) => onUpdate(set.id, { weightLbs: v ? Number(v) : null })}
-          returnKeyType="next"
-          blurOnSubmit={false}
-          onFocus={() => { focusedFieldRef.current = 'weight'; }}
-          onSubmitEditing={() => repsRef.current?.focus()}
-          inputAccessoryViewID={Platform.OS === 'ios' ? accessoryId : undefined}
+          onFocus={handleFocusReps}
+          onBlur={handleBlurReps}
+          onChangeText={setLocalReps}
+          caretHidden={false}
         />
-      )}
-      <TextInput
-        ref={repsRef}
-        style={styles.input}
-        keyboardType="number-pad"
-        value={set.reps != null ? String(set.reps) : ''}
-        placeholder={previousSet?.reps != null ? String(previousSet.reps) : '—'}
-        placeholderTextColor="#636366"
-        onChangeText={(v) => onUpdate(set.id, { reps: v ? Number(v) : null })}
-        returnKeyType={onNext ? 'next' : 'done'}
-        blurOnSubmit={!onNext}
-        onFocus={() => { focusedFieldRef.current = 'reps'; }}
-        onSubmitEditing={() => onNextRef.current?.()}
-        inputAccessoryViewID={Platform.OS === 'ios' ? accessoryId : undefined}
-      />
-      <TouchableOpacity
-        style={[styles.checkCircle, done && styles.checkCircleDone]}
-        onPress={() => onToggleDone?.(set.id)}
-        hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
-      >
-        <Text style={[styles.checkMark, done && styles.checkMarkDone]}>✓</Text>
-      </TouchableOpacity>
-      {Platform.OS === 'ios' && (
-        <InputAccessoryView nativeID={accessoryId}>
-          <View style={styles.accessoryBar}>
-            <TouchableOpacity onPressIn={handleAccessoryNext} style={styles.accessoryBtn}>
-              <Text style={styles.accessoryText}>{accessoryLabel}</Text>
-            </TouchableOpacity>
-          </View>
-        </InputAccessoryView>
-      )}
+        <TouchableOpacity
+          style={[styles.checkCircle, done && styles.checkCircleDone]}
+          onPress={() => onToggleDone?.(set.id)}
+          hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+        >
+          <Text style={[styles.checkMark, done && styles.checkMarkDone]}>✓</Text>
+        </TouchableOpacity>
       </View>
     </Swipeable>
   );
@@ -174,23 +244,4 @@ const styles = StyleSheet.create({
     width: 80,
   },
   deleteActionText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-  accessoryBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    backgroundColor: '#2C2C2E',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#38383A',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  accessoryBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  accessoryText: {
-    color: '#007AFF',
-    fontSize: 17,
-    fontWeight: '600',
-  },
 });

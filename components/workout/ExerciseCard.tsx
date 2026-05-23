@@ -3,47 +3,78 @@ import { StyleSheet, View, Text, TouchableOpacity, Alert, TextInput } from 'reac
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { SetRow } from './SetRow';
-import type { Set } from '@/db/types';
+import type { Set as DbSet } from '@/db/types';
 import type { WorkoutExerciseEntry } from '@/store/workout';
 import { addSet, updateSet, deleteSet, getSetsForWorkoutExercise } from '@/db/queries/sets';
 import { getPreviousPerformance } from '@/db/queries/previous-performance';
 import { useWorkoutStore } from '@/store/workout';
 import { scheduleRestTimerNotification, cancelNotification } from '@/utils/notifications';
 import { formatDuration } from '@/utils/calculations';
+import { useWorkoutKeyboard } from '@/context/WorkoutKeyboardContext';
+import type { TimerHandler } from '@/context/WorkoutKeyboardContext';
 
 interface ExerciseCardProps {
   workoutExercise: WorkoutExerciseEntry;
   onDeleteExercise: (workoutExerciseId: number) => void;
+  onRegisterFocusFirst?: (fn: (() => void) | null) => void;
+  onNextExercise?: () => void;
 }
 
 interface InlineTimer {
   endsAt: number;
   secondsLeft: number;
   isDone: boolean;
+  isPaused: boolean;
   notificationId: string | null;
 }
 
-export function ExerciseCard({ workoutExercise, onDeleteExercise }: ExerciseCardProps) {
+function parseMSS(str: string): number {
+  if (str.includes(':')) {
+    const [m, s] = str.split(':');
+    return (Number(m) || 0) * 60 + (Number(s) || 0);
+  }
+  return Number(str) || 0;
+}
+
+function formatTimerSecs(s: number): string {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
+export function ExerciseCard({ workoutExercise, onDeleteExercise, onRegisterFocusFirst, onNextExercise }: ExerciseCardProps) {
   const db = useSQLiteContext();
   const startRestTimer = useWorkoutStore((s) => s.startRestTimer);
   const extendRestTimer = useWorkoutStore((s) => s.extendRestTimer);
   const stopRestTimer = useWorkoutStore((s) => s.stopRestTimer);
-  const [sets, setSets] = useState<Set[]>([]);
-  const [prevSets, setPrevSets] = useState<Set[]>([]);
+  const { showNumber, showTimer, setTimerPaused, activeNodeRef } = useWorkoutKeyboard();
+
+  const [sets, setSets] = useState<DbSet[]>([]);
+  const [prevSets, setPrevSets] = useState<DbSet[]>([]);
   const [restDuration, setRestDuration] = useState(90);
   const [exerciseNotes, setExerciseNotes] = useState('');
   const [doneSetIds, setDoneSetIds] = useState<Set<number>>(new Set());
   const [inlineTimer, setInlineTimer] = useState<InlineTimer | null>(null);
+  const [timerResetMode, setTimerResetMode] = useState(false);
+  const [timerEditValue, setTimerEditValue] = useState('');
+
   const firstInputs = useRef<Map<number, TextInput | null>>(new Map());
   const doneSetIdsRef = useRef<Set<number>>(new Set());
   const inlineTimerRef = useRef<InlineTimer | null>(null);
+  const afterTimerFocusRef = useRef<(() => void) | null>(null);
+  const timerEditValueRef = useRef('');
+  const timerEditRef = useRef<TextInput>(null);
+  const onRegisterFocusFirstRef = useRef(onRegisterFocusFirst);
+  onRegisterFocusFirstRef.current = onRegisterFocusFirst;
+  const onNextExerciseRef = useRef(onNextExercise);
+  onNextExerciseRef.current = onNextExercise;
 
   useEffect(() => { doneSetIdsRef.current = doneSetIds; }, [doneSetIds]);
   useEffect(() => { inlineTimerRef.current = inlineTimer; }, [inlineTimer]);
 
-  // Inline timer tick — restarts only when a new timer is started (endsAt changes)
+  // Inline timer tick — restarts when endsAt changes or pause state changes
   useEffect(() => {
-    if (!inlineTimer?.endsAt || inlineTimer.isDone) return;
+    if (!inlineTimer?.endsAt || inlineTimer.isDone || inlineTimer.isPaused) return;
     const endsAt = inlineTimer.endsAt;
     const interval = setInterval(() => {
       const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
@@ -51,7 +82,15 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise }: ExerciseCard
       if (remaining === 0) clearInterval(interval);
     }, 1000);
     return () => clearInterval(interval);
-  }, [inlineTimer?.endsAt, inlineTimer?.isDone]);
+  }, [inlineTimer?.endsAt, inlineTimer?.isDone, inlineTimer?.isPaused]);
+
+  // Auto-focus next input when timer completes
+  useEffect(() => {
+    if (!inlineTimer?.isDone) return;
+    const fn = afterTimerFocusRef.current;
+    afterTimerFocusRef.current = null;
+    fn?.();
+  }, [inlineTimer?.isDone]);
 
   const loadSets = useCallback(async () => {
     const fetched = await getSetsForWorkoutExercise(db, workoutExercise.workoutExerciseId);
@@ -65,16 +104,179 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise }: ExerciseCard
     });
     db.getFirstAsync<{ value: string }>(
       "SELECT value FROM settings WHERE key = 'rest_timer_duration'"
-    ).then((row) => {
-      if (row) setRestDuration(Number(row.value));
-    });
+    ).then((row) => { if (row) setRestDuration(Number(row.value)); });
     db.getFirstAsync<{ notes: string | null }>(
       'SELECT notes FROM workout_exercises WHERE id = ?',
       workoutExercise.workoutExerciseId
-    ).then((row) => {
-      if (row?.notes) setExerciseNotes(row.notes);
-    });
+    ).then((row) => { if (row?.notes) setExerciseNotes(row.notes); });
   }, [loadSets, workoutExercise.exerciseId, workoutExercise.workoutExerciseId, db]);
+
+  // Register a focuser fn so active.tsx can focus our first input from outside
+  useEffect(() => {
+    if (sets.length > 0) {
+      onRegisterFocusFirstRef.current?.(() => {
+        firstInputs.current.get(sets[0].id)?.focus();
+      });
+    }
+    return () => { onRegisterFocusFirstRef.current?.(null); };
+  }, [sets]);
+
+  // ── Timer handlers (stable object via refs) ──────────────────────────────────
+
+  const handlePauseTimerRef = useRef<() => void>(noop);
+  const handleSkipTimerRef = useRef<() => void>(noop);
+  const handleAdjustTimerRef = useRef<(d: number) => void>(noop);
+  const handleResetTimerRef = useRef<() => void>(noop);
+
+  const timerHandler = useRef<TimerHandler>({
+    onPause: () => handlePauseTimerRef.current(),
+    onSkip: () => handleSkipTimerRef.current(),
+    onAdjust: (d) => handleAdjustTimerRef.current(d),
+    onReset: () => handleResetTimerRef.current(),
+  }).current;
+
+  // ── Helpers ───────────────────────────────────────────────────────────────────
+
+  const startTimerAt = useCallback(async (secs: number) => {
+    const prevNotifId = inlineTimerRef.current?.notificationId;
+    if (prevNotifId) cancelNotification(prevNotifId).catch(() => {});
+    const endsAt = Date.now() + secs * 1000;
+    const notifId = await scheduleRestTimerNotification(secs);
+    setInlineTimer((prev) => ({
+      endsAt,
+      secondsLeft: secs,
+      isDone: false,
+      isPaused: false,
+      notificationId: notifId,
+      // carry over notification from previous if async races
+      ...(prev ? {} : {}),
+    }));
+    startRestTimer(secs, notifId);
+  }, [startRestTimer]);
+
+  // ── Timer control callbacks ───────────────────────────────────────────────────
+
+  const handlePauseTimer = useCallback(() => {
+    setInlineTimer((prev) => {
+      if (!prev || prev.isDone) return prev;
+      if (prev.isPaused) {
+        // Resume
+        return { ...prev, isPaused: false, endsAt: Date.now() + prev.secondsLeft * 1000 };
+      }
+      return { ...prev, isPaused: true };
+    });
+  }, []);
+  handlePauseTimerRef.current = handlePauseTimer;
+
+  const handleSkipTimer = useCallback(() => {
+    const notifId = inlineTimerRef.current?.notificationId;
+    if (notifId) cancelNotification(notifId).catch(() => {});
+    setInlineTimer(null);
+    setTimerResetMode(false);
+    stopRestTimer();
+    const fn = afterTimerFocusRef.current;
+    afterTimerFocusRef.current = null;
+    fn?.();
+  }, [stopRestTimer]);
+  handleSkipTimerRef.current = handleSkipTimer;
+
+  const handleAdjustTimer = useCallback((delta: number) => {
+    setInlineTimer((prev) => {
+      if (!prev || prev.isDone) return prev;
+      const newSecs = Math.max(1, prev.secondsLeft + delta);
+      if (prev.isPaused) {
+        return { ...prev, secondsLeft: newSecs };
+      }
+      return { ...prev, endsAt: prev.endsAt + delta * 1000, secondsLeft: newSecs };
+    });
+  }, []);
+  handleAdjustTimerRef.current = handleAdjustTimer;
+
+  const handleResetTimer = useCallback(() => {
+    const currentSecs = inlineTimerRef.current?.secondsLeft ?? restDuration;
+    const initVal = formatTimerSecs(currentSecs);
+    setInlineTimer((prev) => prev ? { ...prev, isPaused: true } : null);
+    setTimerResetMode(true);
+    setTimerEditValue(initVal);
+    timerEditValueRef.current = initVal;
+
+    showNumber({
+      onKey: (k) => {
+        // k can be ':' (from dot key when isTimerInput) or a digit
+        setTimerEditValue((prev) => {
+          let next: string;
+          if (k === ':') {
+            if (prev.includes(':')) return prev;
+            next = prev + ':';
+          } else {
+            if (prev.length >= 5) return prev; // max "59:59"
+            next = prev + k;
+          }
+          timerEditValueRef.current = next;
+          return next;
+        });
+      },
+      onBackspace: () => {
+        setTimerEditValue((prev) => {
+          const next = prev.slice(0, -1);
+          timerEditValueRef.current = next;
+          return next;
+        });
+      },
+      onIncrement: (delta) => {
+        setTimerEditValue((prev) => {
+          const secs = Math.max(5, parseMSS(prev) + delta * 10);
+          const formatted = formatTimerSecs(secs);
+          timerEditValueRef.current = formatted;
+          return formatted;
+        });
+      },
+      onNext: () => {
+        const secs = parseMSS(timerEditValueRef.current);
+        setTimerResetMode(false);
+        if (secs > 0) {
+          startTimerAt(secs);
+        }
+        showTimer(timerHandler, false);
+        setTimerPaused(false);
+      },
+    }, { isTimerInput: true });
+
+    // Focus the edit input after the keyboard switches
+    setTimeout(() => {
+      timerEditRef.current?.focus();
+      activeNodeRef.current = timerEditRef.current;
+    }, 50);
+  }, [restDuration, showNumber, showTimer, startTimerAt, timerHandler, setTimerPaused, activeNodeRef]);
+  handleResetTimerRef.current = handleResetTimer;
+
+  // Cancel reset mode if user navigates away without pressing Next
+  const handleTimerEditBlur = useCallback(() => {
+    if (timerResetMode) {
+      setTimerResetMode(false);
+      // Resume the timer with remaining time
+      setInlineTimer((prev) => {
+        if (!prev || !prev.isPaused) return prev;
+        return { ...prev, isPaused: false, endsAt: Date.now() + prev.secondsLeft * 1000 };
+      });
+    }
+  }, [timerResetMode]);
+
+  // Tap the inline timer to (re-)show the timer keyboard
+  const handleTapTimer = useCallback(() => {
+    if (timerResetMode) {
+      setTimerResetMode(false);
+      setInlineTimer((prev) => {
+        if (!prev || !prev.isPaused) return prev;
+        return { ...prev, isPaused: false, endsAt: Date.now() + prev.secondsLeft * 1000 };
+      });
+    }
+    const paused = inlineTimerRef.current?.isPaused ?? false;
+    showTimer(timerHandler, paused);
+    setTimerPaused(paused);
+  }, [timerResetMode, showTimer, timerHandler, setTimerPaused]);
+
+  // ── Set operations ────────────────────────────────────────────────────────────
 
   const handleAddSet = async () => {
     const lastSet = sets[sets.length - 1];
@@ -111,14 +313,11 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise }: ExerciseCard
   const handleDeleteExercise = () => {
     Alert.alert('Remove Exercise', `Remove ${workoutExercise.exerciseName}?`, [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: () => onDeleteExercise(workoutExercise.workoutExerciseId),
-      },
+      { text: 'Remove', style: 'destructive', onPress: () => onDeleteExercise(workoutExercise.workoutExerciseId) },
     ]);
   };
 
+  // Checkmark button toggles done state; does NOT force timer keyboard
   const handleToggleDone = useCallback(async (setId: number) => {
     const currentlyDone = doneSetIdsRef.current.has(setId);
     setDoneSetIds((prev) => {
@@ -126,35 +325,30 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise }: ExerciseCard
       if (currentlyDone) { next.delete(setId); } else { next.add(setId); }
       return next;
     });
-
     if (!currentlyDone) {
-      // Cancel any previous inline timer notification
-      const prevNotifId = inlineTimerRef.current?.notificationId;
-      if (prevNotifId) cancelNotification(prevNotifId).catch(() => {});
-
-      const endsAt = Date.now() + restDuration * 1000;
-      const notifId = await scheduleRestTimerNotification(restDuration);
-      setInlineTimer({ endsAt, secondsLeft: restDuration, isDone: false, notificationId: notifId });
-      startRestTimer(restDuration, notifId);
+      await startTimerAt(restDuration);
     }
-  }, [restDuration, startRestTimer]);
+  }, [restDuration, startTimerAt]);
 
   const handleExtendTimer = useCallback(() => {
-    setInlineTimer((prev) => {
-      if (!prev) return null;
-      const base = prev.isDone ? Date.now() : prev.endsAt;
-      const newEndsAt = base + 30000;
-      return { ...prev, endsAt: newEndsAt, secondsLeft: Math.ceil((newEndsAt - Date.now()) / 1000), isDone: false };
-    });
+    handleAdjustTimer(30);
     extendRestTimer(30);
-  }, [extendRestTimer]);
+  }, [handleAdjustTimer, extendRestTimer]);
 
-  const handleSkipTimer = useCallback(() => {
-    const notifId = inlineTimerRef.current?.notificationId;
-    if (notifId) cancelNotification(notifId).catch(() => {});
-    setInlineTimer(null);
-    stopRestTimer();
-  }, [stopRestTimer]);
+  // Called when keyboard Next is pressed on the reps field
+  const makeDoneFromNext = useCallback((setId: number, afterTimerFn: () => void) => () => {
+    afterTimerFocusRef.current = afterTimerFn;
+
+    if (!doneSetIdsRef.current.has(setId)) {
+      setDoneSetIds((prev) => { const n = new Set(prev); n.add(setId); return n; });
+      startTimerAt(restDuration);
+    }
+
+    showTimer(timerHandler, false);
+    setTimerPaused(false);
+  }, [restDuration, startTimerAt, showTimer, timerHandler, setTimerPaused]);
+
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <View style={styles.card}>
@@ -175,31 +369,50 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise }: ExerciseCard
           <Text style={[styles.colLabel, { width: 36 }]}>✓</Text>
         </View>
       )}
-      {sets.map((s, idx) => (
-        <SetRow
-          key={s.id}
-          set={s}
-          previousSet={prevSets[idx]}
-          isBodyweight={workoutExercise.isBodyweight}
-          onUpdate={handleUpdateSet}
-          onDelete={handleDeleteSet}
-          onRegisterFirstInput={(node) => { firstInputs.current.set(s.id, node); }}
-          onNext={idx < sets.length - 1
-            ? () => { firstInputs.current.get(sets[idx + 1].id)?.focus(); }
-            : undefined}
-          done={doneSetIds.has(s.id)}
-          onToggleDone={handleToggleDone}
-        />
-      ))}
+      {sets.map((s, idx) => {
+        const afterTimerFn = idx < sets.length - 1
+          ? () => firstInputs.current.get(sets[idx + 1].id)?.focus()
+          : () => onNextExerciseRef.current?.();
+
+        return (
+          <SetRow
+            key={s.id}
+            set={s}
+            previousSet={prevSets[idx]}
+            isBodyweight={workoutExercise.isBodyweight}
+            onUpdate={handleUpdateSet}
+            onDelete={handleDeleteSet}
+            onRegisterFirstInput={(node) => { firstInputs.current.set(s.id, node); }}
+            onDoneFromNext={makeDoneFromNext(s.id, afterTimerFn)}
+            done={doneSetIds.has(s.id)}
+            onToggleDone={handleToggleDone}
+          />
+        );
+      })}
       {inlineTimer != null && (
         <View style={[styles.inlineTimer, inlineTimer.isDone && styles.inlineTimerDone]}>
           {inlineTimer.isDone ? (
             <Text style={styles.inlineTimerText}>✓  Rest complete</Text>
+          ) : timerResetMode ? (
+            <>
+              <TextInput
+                ref={timerEditRef}
+                style={[styles.inlineTimerText, styles.inlineTimerCountdown, styles.timerEditInput]}
+                value={timerEditValue}
+                showSoftInputOnFocus={false}
+                onFocus={() => { activeNodeRef.current = timerEditRef.current; }}
+                onBlur={handleTimerEditBlur}
+                caretHidden={false}
+              />
+              <Text style={styles.timerBtnText}>M:SS</Text>
+            </>
           ) : (
             <>
-              <Text style={[styles.inlineTimerText, styles.inlineTimerCountdown]}>
-                {formatDuration(inlineTimer.secondsLeft)}
-              </Text>
+              <TouchableOpacity onPress={handleTapTimer} style={{ flex: 1 }} activeOpacity={0.7}>
+                <Text style={[styles.inlineTimerText, styles.inlineTimerCountdown, inlineTimer.isPaused && styles.timerPaused]}>
+                  {formatDuration(inlineTimer.secondsLeft)}{inlineTimer.isPaused ? '  ⏸' : ''}
+                </Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.timerBtn} onPress={handleExtendTimer}>
                 <Text style={styles.timerBtnText}>+30s</Text>
               </TouchableOpacity>
@@ -224,6 +437,8 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise }: ExerciseCard
     </View>
   );
 }
+
+const noop = () => {};
 
 const styles = StyleSheet.create({
   card: {
@@ -277,6 +492,18 @@ const styles = StyleSheet.create({
   },
   inlineTimerCountdown: {
     fontSize: 18,
+  },
+  timerPaused: {
+    opacity: 0.65,
+  },
+  timerEditInput: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+    paddingVertical: 0,
+    paddingHorizontal: 0,
   },
   timerBtn: {
     backgroundColor: 'rgba(255,255,255,0.15)',
