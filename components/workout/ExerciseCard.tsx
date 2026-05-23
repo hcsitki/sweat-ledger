@@ -326,9 +326,21 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise, onRegisterFocu
       return next;
     });
     if (!currentlyDone) {
+      // Auto-fill previous data if weight or reps are empty
+      const setIndex = sets.findIndex((s) => s.id === setId);
+      if (setIndex >= 0) {
+        const currentSet = sets[setIndex];
+        const prevSet = prevSets[setIndex];
+        if (prevSet) {
+          const updates: { weightLbs?: number | null; reps?: number | null } = {};
+          if (currentSet.weight_lbs == null && prevSet.weight_lbs != null) updates.weightLbs = prevSet.weight_lbs;
+          if (currentSet.reps == null && prevSet.reps != null) updates.reps = prevSet.reps;
+          if (Object.keys(updates).length > 0) await handleUpdateSet(setId, updates);
+        }
+      }
       await startTimerAt(restDuration);
     }
-  }, [restDuration, startTimerAt]);
+  }, [restDuration, startTimerAt, sets, prevSets, handleUpdateSet]);
 
   const handleExtendTimer = useCallback(() => {
     handleAdjustTimer(30);
@@ -366,7 +378,7 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise, onRegisterFocu
           <Text style={[styles.colLabel, { flex: 1 }]}>Previous</Text>
           {!workoutExercise.isBodyweight && <Text style={styles.colLabel}>lbs</Text>}
           <Text style={styles.colLabel}>Reps</Text>
-          <Text style={[styles.colLabel, { width: 36 }]}>✓</Text>
+          <Text style={[styles.colLabel, { width: 28 }]}>✓</Text>
         </View>
       )}
       {sets.map((s, idx) => {

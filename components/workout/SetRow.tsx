@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#3A3A3C',
     color: '#FFFFFF',
   },
-  prev: { color: '#8E8E93', fontSize: 12, flex: 1 },
+  prev: { color: '#8E8E93', fontSize: 12, flex: 1, textAlign: 'center' },
   deleteAction: {
     backgroundColor: '#FF3B30',
     justifyContent: 'center',

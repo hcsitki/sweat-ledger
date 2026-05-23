@@ -91,3 +91,14 @@ export async function getSetsForWorkoutExercise(
     workoutExerciseId
   );
 }
+
+export async function deleteEmptySetsForSession(db: SQLiteDatabase, sessionId: number): Promise<void> {
+  await db.runAsync(
+    `DELETE FROM sets
+     WHERE workout_exercise_id IN (
+       SELECT id FROM workout_exercises WHERE session_id = ?
+     )
+     AND weight_lbs IS NULL AND reps IS NULL`,
+    sessionId
+  );
+}

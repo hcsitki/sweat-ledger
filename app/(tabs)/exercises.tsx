@@ -62,8 +62,8 @@ export default function ExercisesScreen() {
         returnKeyType="search"
       />
 
-      <FilterBar options={MUSCLE_GROUPS} selected={muscleGroup} onSelect={setMuscleGroup} />
-      <FilterBar options={EQUIPMENT_TYPES} selected={equipmentType} onSelect={setEquipmentType} />
+      <FilterBar label="Body Part" options={MUSCLE_GROUPS} selected={muscleGroup} onSelect={setMuscleGroup} />
+      <FilterBar label="Equipment" options={EQUIPMENT_TYPES} selected={equipmentType} onSelect={setEquipmentType} />
 
       <View style={styles.toggleRow}>
         <Text style={styles.toggleLabel}>Performed only</Text>

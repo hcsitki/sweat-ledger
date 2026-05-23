@@ -14,10 +14,9 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useWorkoutStore } from '@/store/workout';
 import { finishWorkoutSession, cancelWorkoutSession, updateSessionName, saveSessionCalories } from '@/db/queries/workouts';
 import { initHealthKit, getLatestWeight, estimateCalories, writeStrengthWorkout } from '@/services/health';
-import { deleteWorkoutExercise } from '@/db/queries/sets';
+import { deleteWorkoutExercise, deleteEmptySetsForSession } from '@/db/queries/sets';
 import { ExerciseCard } from '@/components/workout/ExerciseCard';
 import { WorkoutTimer } from '@/components/workout/WorkoutTimer';
-import { RestTimerBar } from '@/components/workout/RestTimerBar';
 import { CustomKeyboard, KEYBOARD_CONTENT_HEIGHT } from '@/components/workout/CustomKeyboard';
 import { WorkoutKeyboardProvider, useWorkoutKeyboard } from '@/context/WorkoutKeyboardContext';
 import { getElapsedSeconds } from '@/utils/calculations';
@@ -70,6 +69,7 @@ function ActiveContent() {
           if (sessionId == null || startedAt == null) return;
           const finishedAt = Date.now();
           const durationSeconds = getElapsedSeconds(startedAt);
+          await deleteEmptySetsForSession(db, sessionId);
           await finishWorkoutSession(db, sessionId, durationSeconds, finishedAt);
           const finishedSessionId = sessionId;
           clearWorkout();
@@ -133,6 +133,13 @@ function ActiveContent() {
             returnKeyType="done"
           />
           <WorkoutTimer />
+          <TouchableOpacity
+            onPress={() => router.navigate('/(tabs)')}
+            style={styles.minimizeBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.minimizeBtnText}>−</Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.actionRow}>
           <TouchableOpacity onPress={handleCancel}>
@@ -177,7 +184,6 @@ function ActiveContent() {
         </TouchableOpacity>
       </ScrollView>
 
-      {mode === 'hidden' && <RestTimerBar />}
       <CustomKeyboard />
     </SafeAreaView>
   );
@@ -217,4 +223,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#2C2C2E',
   },
   addExerciseText: { color: '#007AFF', fontWeight: '600', fontSize: 16 },
+  minimizeBtn: {
+    paddingLeft: 10,
+    paddingVertical: 4,
+  },
+  minimizeBtnText: {
+    color: '#8E8E93',
+    fontSize: 26,
+    fontWeight: '300',
+    lineHeight: 28,
+  },
 });

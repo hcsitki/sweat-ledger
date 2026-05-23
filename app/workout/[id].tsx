@@ -9,6 +9,9 @@ import {
   type EnrichedSet,
 } from '@/components/history/WorkoutDetailExercise';
 import type { WorkoutHistoryDetail, WorkoutHistoryExercise } from '@/db/types';
+import { useWorkoutStore } from '@/store/workout';
+import { startWorkoutFromSession } from '@/utils/start-from-session';
+import { saveWorkoutAsTemplate } from '@/db/queries/templates';
 
 interface EnrichedExercise {
   workout_exercise_id: number;
@@ -76,6 +79,54 @@ export default function WorkoutDetailScreen() {
           },
         },
       ]
+    );
+  }
+
+  function handlePerformAgain() {
+    const activeSessionId = useWorkoutStore.getState().sessionId;
+    if (activeSessionId != null) {
+      Alert.alert(
+        'Workout in Progress',
+        'You have an active workout. Cancel it to start this one?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Start Anyway',
+            style: 'destructive',
+            onPress: async () => {
+              const { clearWorkout, startWorkout, addExerciseToSession } = useWorkoutStore.getState();
+              clearWorkout();
+              const ok = await startWorkoutFromSession(db, { startWorkout, addExerciseToSession }, Number(id));
+              if (ok) router.push('/workout/active');
+            },
+          },
+        ]
+      );
+      return;
+    }
+    const { startWorkout, addExerciseToSession } = useWorkoutStore.getState();
+    startWorkoutFromSession(db, { startWorkout, addExerciseToSession }, Number(id)).then((ok) => {
+      if (ok) router.push('/workout/active');
+    });
+  }
+
+  function handleSaveAsTemplate() {
+    Alert.prompt(
+      'Save as Template',
+      'Enter a name for this template:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Save',
+          onPress: async (name?: string) => {
+            const templateName = (name ?? '').trim() || (detail?.name ?? 'My Template');
+            await saveWorkoutAsTemplate(db, Number(id), templateName);
+            Alert.alert('Saved', `Template "${templateName}" created.`);
+          },
+        },
+      ],
+      'plain-text',
+      detail?.name ?? ''
     );
   }
 
@@ -168,6 +219,20 @@ export default function WorkoutDetailScreen() {
           sets={ex.sets}
         />
       ))}
+      <View style={styles.actionRow}>
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.actionBtnSecondary]}
+          onPress={handleSaveAsTemplate}
+        >
+          <Text style={styles.actionBtnSecondaryText}>Save as Template</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionBtn, styles.actionBtnPrimary]}
+          onPress={handlePerformAgain}
+        >
+          <Text style={styles.actionBtnPrimaryText}>Perform Again</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
@@ -201,4 +266,15 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
   statLabel: { fontSize: 11, color: '#8E8E93', textTransform: 'uppercase' },
   statDivider: { width: StyleSheet.hairlineWidth, height: 32, backgroundColor: '#38383A' },
+
+  actionRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  actionBtn: { flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  actionBtnPrimary: { backgroundColor: '#007AFF' },
+  actionBtnSecondary: {
+    backgroundColor: '#2C2C2E',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#38383A',
+  },
+  actionBtnPrimaryText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  actionBtnSecondaryText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16 },
 });

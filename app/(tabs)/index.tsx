@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#1C1C1E' },
   listContent: { padding: 20, gap: 12 },
 
-  screenTitle: { fontSize: 28, fontWeight: '700', marginBottom: 4, color: '#FFFFFF' },
+  screenTitle: { fontSize: 28, fontWeight: '700', marginBottom: 20, color: '#FFFFFF' },
 
   startBtn: {
     backgroundColor: '#007AFF',
