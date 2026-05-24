@@ -120,7 +120,11 @@ export function SetRow({
           return String(next);
         });
       },
-      onNext: () => onDoneFromNextRef.current?.(),
+      onNext: () => {
+        repsRef.current?.blur();
+        activeNodeRef.current = null;
+        onDoneFromNextRef.current?.();
+      },
     });
   }, [set.id, onUpdate, showNumber, activeNodeRef]);
 
