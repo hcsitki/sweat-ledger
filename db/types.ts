@@ -67,6 +67,7 @@ export interface Set {
   reps: number | null;
   notes: string | null;
   logged_at: number;
+  is_done: number;
 }
 
 export interface WorkoutTemplate {

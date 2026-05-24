@@ -1,17 +1,17 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert, TextInput } from 'react-native';
-import { router } from 'expo-router';
-import { useSQLiteContext } from 'expo-sqlite';
-import { SetRow } from './SetRow';
+import type { TimerHandler } from '@/context/WorkoutKeyboardContext';
+import { useWorkoutKeyboard } from '@/context/WorkoutKeyboardContext';
+import { getPreviousPerformance } from '@/db/queries/previous-performance';
+import { addSet, deleteSet, getSetsForWorkoutExercise, updateSet } from '@/db/queries/sets';
 import type { Set as DbSet } from '@/db/types';
 import type { WorkoutExerciseEntry } from '@/store/workout';
-import { addSet, updateSet, deleteSet, getSetsForWorkoutExercise } from '@/db/queries/sets';
-import { getPreviousPerformance } from '@/db/queries/previous-performance';
 import { useWorkoutStore } from '@/store/workout';
-import { scheduleRestTimerNotification, cancelNotification } from '@/utils/notifications';
 import { formatDuration } from '@/utils/calculations';
-import { useWorkoutKeyboard } from '@/context/WorkoutKeyboardContext';
-import type { TimerHandler } from '@/context/WorkoutKeyboardContext';
+import { cancelNotification, scheduleRestTimerNotification } from '@/utils/notifications';
+import { router } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SetRow } from './SetRow';
 
 interface ExerciseCardProps {
   workoutExercise: WorkoutExerciseEntry;
@@ -47,7 +47,7 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise, onRegisterFocu
   const startRestTimer = useWorkoutStore((s) => s.startRestTimer);
   const extendRestTimer = useWorkoutStore((s) => s.extendRestTimer);
   const stopRestTimer = useWorkoutStore((s) => s.stopRestTimer);
-  const { showNumber, showTimer, setTimerPaused, activeNodeRef } = useWorkoutKeyboard();
+  const { showNumber, showTimer, setTimerPaused, activeNodeRef, mode } = useWorkoutKeyboard();
 
   const [sets, setSets] = useState<DbSet[]>([]);
   const [prevSets, setPrevSets] = useState<DbSet[]>([]);
@@ -57,6 +57,7 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise, onRegisterFocu
   const [inlineTimer, setInlineTimer] = useState<InlineTimer | null>(null);
   const [timerResetMode, setTimerResetMode] = useState(false);
   const [timerEditValue, setTimerEditValue] = useState('');
+  const [timerKeyboardOwned, setTimerKeyboardOwned] = useState(false);
 
   const firstInputs = useRef<Map<number, TextInput | null>>(new Map());
   const doneSetIdsRef = useRef<Set<number>>(new Set());
@@ -71,6 +72,7 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise, onRegisterFocu
 
   useEffect(() => { doneSetIdsRef.current = doneSetIds; }, [doneSetIds]);
   useEffect(() => { inlineTimerRef.current = inlineTimer; }, [inlineTimer]);
+  useEffect(() => { if (mode !== 'timer') setTimerKeyboardOwned(false); }, [mode]);
 
   // Inline timer tick — restarts when endsAt changes or pause state changes
   useEffect(() => {
@@ -95,6 +97,13 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise, onRegisterFocu
   const loadSets = useCallback(async () => {
     const fetched = await getSetsForWorkoutExercise(db, workoutExercise.workoutExerciseId);
     setSets(fetched);
+    setDoneSetIds((prev) => {
+      const next = new Set(prev);
+      for (const s of fetched) {
+        if (s.is_done) next.add(s.id);
+      }
+      return next;
+    });
   }, [db, workoutExercise.workoutExerciseId]);
 
   useEffect(() => {
@@ -274,6 +283,7 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise, onRegisterFocu
     const paused = inlineTimerRef.current?.isPaused ?? false;
     showTimer(timerHandler, paused);
     setTimerPaused(paused);
+    setTimerKeyboardOwned(true);
   }, [timerResetMode, showTimer, timerHandler, setTimerPaused]);
 
   // ── Set operations ────────────────────────────────────────────────────────────
@@ -325,6 +335,7 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise, onRegisterFocu
       if (currentlyDone) { next.delete(setId); } else { next.add(setId); }
       return next;
     });
+    await updateSet(db, setId, { isDone: !currentlyDone });
     if (!currentlyDone) {
       // Auto-fill previous data if weight or reps are empty
       const setIndex = sets.findIndex((s) => s.id === setId);
@@ -348,17 +359,33 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise, onRegisterFocu
   }, [handleAdjustTimer, extendRestTimer]);
 
   // Called when keyboard Next is pressed on the reps field
-  const makeDoneFromNext = useCallback((setId: number, afterTimerFn: () => void) => () => {
+  const makeDoneFromNext = useCallback((setId: number, afterTimerFn: () => void) => async () => {
     afterTimerFocusRef.current = afterTimerFn;
 
     if (!doneSetIdsRef.current.has(setId)) {
       setDoneSetIds((prev) => { const n = new Set(prev); n.add(setId); return n; });
-      startTimerAt(restDuration);
+      await updateSet(db, setId, { isDone: true });
+
+      // Auto-fill previous data if weight or reps are empty
+      const setIndex = sets.findIndex((s) => s.id === setId);
+      if (setIndex >= 0) {
+        const currentSet = sets[setIndex];
+        const prevSet = prevSets[setIndex];
+        if (prevSet) {
+          const updates: { weightLbs?: number | null; reps?: number | null } = {};
+          if (currentSet.weight_lbs == null && prevSet.weight_lbs != null) updates.weightLbs = prevSet.weight_lbs;
+          if (currentSet.reps == null && prevSet.reps != null) updates.reps = prevSet.reps;
+          if (Object.keys(updates).length > 0) await handleUpdateSet(setId, updates);
+        }
+      }
+
+      await startTimerAt(restDuration);
     }
 
     showTimer(timerHandler, false);
     setTimerPaused(false);
-  }, [restDuration, startTimerAt, showTimer, timerHandler, setTimerPaused]);
+    setTimerKeyboardOwned(true);
+  }, [restDuration, startTimerAt, showTimer, timerHandler, setTimerPaused, sets, prevSets, handleUpdateSet]);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -402,7 +429,7 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise, onRegisterFocu
         );
       })}
       {inlineTimer != null && (
-        <View style={[styles.inlineTimer, inlineTimer.isDone && styles.inlineTimerDone]}>
+        <View style={[styles.inlineTimer, inlineTimer.isDone && styles.inlineTimerDone, timerKeyboardOwned && !inlineTimer.isDone && !timerResetMode && styles.inlineTimerFocused]}>
           {inlineTimer.isDone ? (
             <Text style={styles.inlineTimerText}>✓  Rest complete</Text>
           ) : timerResetMode ? (
@@ -494,6 +521,10 @@ const styles = StyleSheet.create({
   },
   inlineTimerDone: {
     backgroundColor: '#34C759',
+  },
+  inlineTimerFocused: {
+    borderWidth: 3,
+    borderColor: '#007AFF',
   },
   inlineTimerText: {
     flex: 1,

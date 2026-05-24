@@ -286,11 +286,20 @@ export async function migrateDb(db: SQLiteDatabase) {
   if (version < 6) {
     await migrateToV6(db);
   }
+
+  if (version < 7) {
+    await migrateToV7(db);
+  }
 }
 
 async function migrateToV6(db: SQLiteDatabase) {
   await db.execAsync('ALTER TABLE workout_exercises ADD COLUMN notes TEXT');
   await db.execAsync('PRAGMA user_version = 6');
+}
+
+async function migrateToV7(db: SQLiteDatabase) {
+  await db.execAsync('ALTER TABLE sets ADD COLUMN is_done INTEGER NOT NULL DEFAULT 0');
+  await db.execAsync('PRAGMA user_version = 7');
 }
 
 async function migrateToV3(db: SQLiteDatabase) {

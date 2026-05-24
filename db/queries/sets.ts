@@ -50,7 +50,7 @@ export async function addSet(
 export async function updateSet(
   db: SQLiteDatabase,
   setId: number,
-  updates: { weightLbs?: number | null; reps?: number | null; notes?: string | null }
+  updates: { weightLbs?: number | null; reps?: number | null; notes?: string | null; isDone?: boolean }
 ): Promise<void> {
   const fields: string[] = [];
   const values: (number | string | null)[] = [];
@@ -66,6 +66,10 @@ export async function updateSet(
   if ('notes' in updates) {
     fields.push('notes = ?');
     values.push(updates.notes ?? null);
+  }
+  if ('isDone' in updates) {
+    fields.push('is_done = ?');
+    values.push((updates as { isDone?: boolean }).isDone ? 1 : 0);
   }
 
   if (fields.length === 0) return;
