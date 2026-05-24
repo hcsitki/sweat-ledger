@@ -1,93 +1,98 @@
 import { Platform } from 'react-native';
-import AppleHealthKit, {
-  type HealthKitPermissions,
-  type HealthValue,
-} from 'react-native-health';
+import {
+  requestAuthorization,
+  getMostRecentQuantitySample,
+  queryQuantitySamples,
+  saveWorkoutSample,
+  isHealthDataAvailable,
+  WorkoutActivityType,
+} from '@kingstinct/react-native-healthkit';
 
 export interface HealthSample {
   date: string; // YYYY-MM-DD
   value: number;
 }
 
-const PERMISSIONS: HealthKitPermissions = {
-  permissions: {
-    read: [
-      AppleHealthKit.Constants.Permissions.Weight,
-      AppleHealthKit.Constants.Permissions.BodyFatPercentage,
-    ],
-    write: [AppleHealthKit.Constants.Permissions.Workout],
-  },
-};
-
 export async function initHealthKit(): Promise<boolean> {
   if (Platform.OS !== 'ios') return false;
-  return new Promise((resolve) => {
-    AppleHealthKit.initHealthKit(PERMISSIONS, (error) => {
-      resolve(!error);
+  if (!isHealthDataAvailable()) return false;
+  try {
+    return await requestAuthorization({
+      toShare: ['HKWorkoutTypeIdentifier'],
+      toRead: [
+        'HKQuantityTypeIdentifierBodyMass',
+        'HKQuantityTypeIdentifierBodyFatPercentage',
+      ],
     });
-  });
+  } catch (e) {
+    console.warn('[HealthKit] requestAuthorization error:', e);
+    return false;
+  }
 }
 
 export async function getLatestWeight(): Promise<number | null> {
   if (Platform.OS !== 'ios') return null;
-  return new Promise((resolve) => {
-    AppleHealthKit.getLatestWeight(
-      { unit: AppleHealthKit.Constants.Units.pound },
-      (error: string, result: HealthValue) => {
-        if (error || result == null) {
-          resolve(null);
-          return;
-        }
-        resolve(result.value);
-      }
+  try {
+    const sample = await getMostRecentQuantitySample(
+      'HKQuantityTypeIdentifierBodyMass',
+      'lb'
     );
-  });
+    return sample?.quantity ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getLatestBodyFat(): Promise<number | null> {
   if (Platform.OS !== 'ios') return null;
-  return new Promise((resolve) => {
-    AppleHealthKit.getLatestBodyFatPercentage(
-      {},
-      (error: string, result: HealthValue) => {
-        if (error || result == null) {
-          resolve(null);
-          return;
-        }
-        // HealthKit stores body fat as a decimal (0.20 = 20%)
-        resolve(result.value * 100);
-      }
+  try {
+    const sample = await getMostRecentQuantitySample(
+      'HKQuantityTypeIdentifierBodyFatPercentage'
     );
-  });
+    if (sample == null) return null;
+    // HealthKit's % unit is a ratio (0.20 = 20%) — convert to display percentage
+    return sample.quantity * 100;
+  } catch {
+    return null;
+  }
 }
 
 export async function getWeightSamples(start: Date, end: Date): Promise<HealthSample[]> {
   if (Platform.OS !== 'ios') return [];
-  return new Promise((resolve) => {
-    AppleHealthKit.getWeightSamples(
-      {
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
-        unit: AppleHealthKit.Constants.Units.pound,
-        ascending: true,
-      },
-      (err: string, results: HealthValue[]) => {
-        resolve(err || !results ? [] : results.map((r) => ({ date: r.startDate.slice(0, 10), value: r.value })));
-      }
-    );
-  });
+  try {
+    const samples = await queryQuantitySamples('HKQuantityTypeIdentifierBodyMass', {
+      limit: 0,
+      unit: 'lb',
+      ascending: true,
+      filter: { date: { startDate: start, endDate: end } },
+    });
+    return samples.map((s) => ({
+      date: s.startDate.toISOString().slice(0, 10),
+      value: s.quantity,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export async function getBodyFatSamples(start: Date, end: Date): Promise<HealthSample[]> {
   if (Platform.OS !== 'ios') return [];
-  return new Promise((resolve) => {
-    AppleHealthKit.getBodyFatPercentageSamples(
-      { startDate: start.toISOString(), endDate: end.toISOString(), ascending: true },
-      (err: string, results: HealthValue[]) => {
-        resolve(err || !results ? [] : results.map((r) => ({ date: r.startDate.slice(0, 10), value: r.value * 100 })));
+  try {
+    const samples = await queryQuantitySamples(
+      'HKQuantityTypeIdentifierBodyFatPercentage',
+      {
+        limit: 0,
+        ascending: true,
+        filter: { date: { startDate: start, endDate: end } },
       }
     );
-  });
+    return samples.map((s) => ({
+      date: s.startDate.toISOString().slice(0, 10),
+      value: s.quantity * 100,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 // MET 3.5 is the standard value for Traditional Strength Training
@@ -101,24 +106,15 @@ export function estimateCalories(durationSeconds: number, weightLbs: number): nu
 export async function writeStrengthWorkout(
   startedAt: number,
   finishedAt: number,
-  durationSeconds: number,
+  _durationSeconds: number,
   caloriesBurned: number | null
 ): Promise<void> {
   if (Platform.OS !== 'ios') return;
-  return new Promise((resolve) => {
-    // The TS types for react-native-health don't declare duration/energyBurned
-    // but the native module accepts them per the Objective-C implementation.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const options: any = {
-      type: AppleHealthKit.Constants.Activities.TraditionalStrengthTraining,
-      startDate: new Date(startedAt).toISOString(),
-      endDate: new Date(finishedAt).toISOString(),
-      duration: durationSeconds,
-      ...(caloriesBurned != null && {
-        energyBurned: caloriesBurned,
-        energyBurnedUnit: 'kilocalorie',
-      }),
-    };
-    AppleHealthKit.saveWorkout(options, () => resolve());
-  });
+  await saveWorkoutSample(
+    WorkoutActivityType.traditionalStrengthTraining,
+    [],
+    new Date(startedAt),
+    new Date(finishedAt),
+    caloriesBurned != null ? { energyBurned: caloriesBurned } : undefined
+  );
 }

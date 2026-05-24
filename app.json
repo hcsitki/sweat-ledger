@@ -57,10 +57,11 @@
         }
       ],
       [
-        "react-native-health",
+        "@kingstinct/react-native-healthkit",
         {
-          "healthSharePermission": "Sweat Ledger reads your weight and body fat percentage to calculate calorie estimates.",
-          "healthUpdatePermission": "Sweat Ledger saves your workouts to Apple Health."
+          "NSHealthShareUsageDescription": "Sweat Ledger reads your weight and body fat percentage to calculate calorie estimates.",
+          "NSHealthUpdateUsageDescription": "Sweat Ledger saves your workouts to Apple Health.",
+          "background": false
         }
       ]
     ],
