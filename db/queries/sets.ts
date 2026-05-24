@@ -96,6 +96,21 @@ export async function getSetsForWorkoutExercise(
   );
 }
 
+export async function updateExerciseOrders(
+  db: SQLiteDatabase,
+  exercises: { id: number; orderIndex: number }[]
+): Promise<void> {
+  await db.withTransactionAsync(async () => {
+    for (const ex of exercises) {
+      await db.runAsync(
+        'UPDATE workout_exercises SET order_index = ? WHERE id = ?',
+        ex.orderIndex,
+        ex.id
+      );
+    }
+  });
+}
+
 export async function deleteEmptySetsForSession(db: SQLiteDatabase, sessionId: number): Promise<void> {
   await db.runAsync(
     `DELETE FROM sets

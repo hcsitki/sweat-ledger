@@ -18,6 +18,7 @@ interface ExerciseCardProps {
   onDeleteExercise: (workoutExerciseId: number) => void;
   onRegisterFocusFirst?: (fn: (() => void) | null) => void;
   onNextExercise?: () => void;
+  collapsed?: boolean;
 }
 
 interface InlineTimer {
@@ -42,7 +43,7 @@ function formatTimerSecs(s: number): string {
   return `${m}:${String(sec).padStart(2, '0')}`;
 }
 
-export function ExerciseCard({ workoutExercise, onDeleteExercise, onRegisterFocusFirst, onNextExercise }: ExerciseCardProps) {
+export function ExerciseCard({ workoutExercise, onDeleteExercise, onRegisterFocusFirst, onNextExercise, collapsed = false }: ExerciseCardProps) {
   const db = useSQLiteContext();
   const startRestTimer = useWorkoutStore((s) => s.startRestTimer);
   const extendRestTimer = useWorkoutStore((s) => s.extendRestTimer);
@@ -389,6 +390,17 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise, onRegisterFocu
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
+  if (collapsed) {
+    return (
+      <View style={styles.card}>
+        <View style={styles.header}>
+          <Text style={styles.dragHandle}>☰</Text>
+          <Text style={styles.nameCollapsed}>{workoutExercise.exerciseName}</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -498,6 +510,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#2C2C2E',
   },
   name: { fontSize: 16, fontWeight: '600', color: '#007AFF' },
+  nameCollapsed: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', flex: 1 },
+  dragHandle: { fontSize: 16, color: '#8E8E93', marginRight: 10, width: 20, textAlign: 'center' },
   remove: { color: '#FF3B30', fontSize: 14 },
   columnHeaders: {
     flexDirection: 'row',

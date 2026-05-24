@@ -14,8 +14,8 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useWorkoutStore } from '@/store/workout';
 import { finishWorkoutSession, cancelWorkoutSession, updateSessionName, saveSessionCalories } from '@/db/queries/workouts';
 import { initHealthKit, getLatestWeight, estimateCalories, writeStrengthWorkout } from '@/services/health';
-import { deleteWorkoutExercise, deleteEmptySetsForSession } from '@/db/queries/sets';
-import { ExerciseCard } from '@/components/workout/ExerciseCard';
+import { deleteWorkoutExercise, deleteEmptySetsForSession, updateExerciseOrders } from '@/db/queries/sets';
+import { DraggableExerciseList } from '@/components/workout/DraggableExerciseList';
 import { WorkoutTimer } from '@/components/workout/WorkoutTimer';
 import { CustomKeyboard, KEYBOARD_CONTENT_HEIGHT } from '@/components/workout/CustomKeyboard';
 import { WorkoutKeyboardProvider, useWorkoutKeyboard } from '@/context/WorkoutKeyboardContext';
@@ -37,6 +37,7 @@ function ActiveContent() {
   const workoutExercises = useWorkoutStore((s) => s.workoutExercises);
   const setSessionName = useWorkoutStore((s) => s.setSessionName);
   const removeExerciseFromSession = useWorkoutStore((s) => s.removeExerciseFromSession);
+  const reorderExercises = useWorkoutStore((s) => s.reorderExercises);
   const clearWorkout = useWorkoutStore((s) => s.clearWorkout);
 
   const { mode } = useWorkoutKeyboard();
@@ -120,6 +121,17 @@ function ActiveContent() {
     [db, removeExerciseFromSession]
   );
 
+  const handleReorder = useCallback(
+    async (newOrder: typeof workoutExercises) => {
+      reorderExercises(newOrder);
+      await updateExerciseOrders(
+        db,
+        newOrder.map((ex, idx) => ({ id: ex.workoutExerciseId, orderIndex: idx }))
+      );
+    },
+    [db, reorderExercises]
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
@@ -156,23 +168,12 @@ function ActiveContent() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: keyboardH + 24 }]}
         keyboardShouldPersistTaps="handled"
       >
-        {workoutExercises.map((we, idx) => {
-          const nextExercise = workoutExercises[idx + 1];
-          return (
-            <ExerciseCard
-              key={we.workoutExerciseId}
-              workoutExercise={we}
-              onDeleteExercise={handleDeleteExercise}
-              onRegisterFocusFirst={(fn) => {
-                if (fn) exerciseFocusers.current.set(we.workoutExerciseId, fn);
-                else exerciseFocusers.current.delete(we.workoutExerciseId);
-              }}
-              onNextExercise={nextExercise
-                ? () => exerciseFocusers.current.get(nextExercise.workoutExerciseId)?.()
-                : undefined}
-            />
-          );
-        })}
+        <DraggableExerciseList
+          exercises={workoutExercises}
+          onReorder={handleReorder}
+          onDeleteExercise={handleDeleteExercise}
+          exerciseFocusers={exerciseFocusers}
+        />
         {workoutExercises.length === 0 && (
           <Text style={styles.emptyText}>Add an exercise to get started.</Text>
         )}

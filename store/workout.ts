@@ -34,6 +34,7 @@ export interface ActiveWorkoutStore {
   startRestTimer: (durationSeconds: number, notificationId: string) => void;
   extendRestTimer: (additionalSeconds: number) => void;
   stopRestTimer: () => void;
+  reorderExercises: (newOrder: WorkoutExerciseEntry[]) => void;
   clearWorkout: () => void;
 }
 
@@ -66,6 +67,8 @@ export const useWorkoutStore = create<ActiveWorkoutStore>((set) => ({
         (e) => e.workoutExerciseId !== workoutExerciseId
       ),
     })),
+
+  reorderExercises: (newOrder) => set({ workoutExercises: newOrder }),
 
   setSessionName: (name) => set({ sessionName: name }),
 

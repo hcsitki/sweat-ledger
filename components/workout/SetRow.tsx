@@ -84,15 +84,16 @@ export function SetRow({
       },
       onIncrement: (delta) => {
         setLocalWeight((prev) => {
-          const next = Math.max(0, (Number(prev) || 0) + delta);
-          const str = Number.isInteger(next) ? String(next) : String(next);
+          const base = prev !== '' ? Number(prev) : (previousSet?.weight_lbs ?? 0);
+          const next = Math.max(0, base + delta);
+          const str = String(next);
           onUpdate(set.id, { weightLbs: next });
           return str;
         });
       },
       onNext: () => repsRef.current?.focus(),
     });
-  }, [set.id, onUpdate, showNumber, activeNodeRef]);
+  }, [set.id, onUpdate, showNumber, activeNodeRef, previousSet]);
 
   const handleFocusReps = useCallback(() => {
     repsFocused.current = true;
@@ -115,7 +116,8 @@ export function SetRow({
       },
       onIncrement: (delta) => {
         setLocalReps((prev) => {
-          const next = Math.max(0, Math.round((Number(prev) || 0) + delta));
+          const base = prev !== '' ? Number(prev) : (previousSet?.reps ?? 0);
+          const next = Math.max(0, Math.round(base + delta));
           onUpdate(set.id, { reps: next });
           return String(next);
         });
@@ -126,7 +128,7 @@ export function SetRow({
         onDoneFromNextRef.current?.();
       },
     });
-  }, [set.id, onUpdate, showNumber, activeNodeRef]);
+  }, [set.id, onUpdate, showNumber, activeNodeRef, previousSet]);
 
   const handleBlurWeight = useCallback(() => {
     weightFocused.current = false;
