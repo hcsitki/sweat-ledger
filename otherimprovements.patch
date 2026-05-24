@@ -1,0 +1,534 @@
+From 426a9fcd21ded078e9bb6242d899b43417f9eaaf Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 23 May 2026 04:36:43 +0000
+Subject: [PATCH] Implement brainstorm board: spacing, alignment, checkbox
+ auto-fill, empty set cleanup, mini workout bar, perform again, save as
+ template, exercise filter labels
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Task 1: Increase screenTitle marginBottom 4→20 in Log tab for breathing room
+- Task 2a: Add textAlign:center to SetRow prev style to match column header
+- Task 2b: Fix checkmark column header width 36→28 to match actual checkCircle width
+- Task 3: Add Body Part / Equipment labels to exercise filter bars
+- Task 4: Checkbox auto-fills previous weight/reps when fields are empty before starting rest timer
+- Task 5: Delete empty sets (null weight and reps) before finishing workout
+- Task 6: Remove redundant RestTimerBar (inline card timer is sufficient)
+- Task 7: Add Perform Again + Save as Template buttons to workout detail screen; new utils/start-from-session.ts utility
+- Task 8: WorkoutMiniBar floating above tab bar when workout is active; minimize button on active workout header navigates back to tabs
+---
+ app/(tabs)/_layout.tsx                | 79 ++++++++++++------------
+ app/(tabs)/exercises.tsx              |  4 +-
+ app/(tabs)/index.tsx                  |  2 +-
+ app/workout/[id].tsx                  | 76 +++++++++++++++++++++++
+ app/workout/active.tsx                | 22 ++++++-
+ components/workout/ExerciseCard.tsx   | 16 ++++-
+ components/workout/SetRow.tsx         |  2 +-
+ components/workout/WorkoutMiniBar.tsx | 87 +++++++++++++++++++++++++++
+ db/queries/sets.ts                    | 11 ++++
+ utils/start-from-session.ts           | 37 ++++++++++++
+ 10 files changed, 290 insertions(+), 46 deletions(-)
+ create mode 100644 components/workout/WorkoutMiniBar.tsx
+ create mode 100644 utils/start-from-session.ts
+
+diff --git a/app/(tabs)/_layout.tsx b/app/(tabs)/_layout.tsx
+index 060ef58..9cee24c 100644
+--- a/app/(tabs)/_layout.tsx
++++ b/app/(tabs)/_layout.tsx
+@@ -1,51 +1,56 @@
+ import { Tabs } from 'expo-router';
+ import React from 'react';
++import { View } from 'react-native';
+ 
+ import { HapticTab } from '@/components/haptic-tab';
+ import { IconSymbol } from '@/components/ui/icon-symbol';
+ import { Colors } from '@/constants/theme';
+ import { useColorScheme } from '@/hooks/use-color-scheme';
++import { WorkoutMiniBar } from '@/components/workout/WorkoutMiniBar';
+ 
+ export default function TabLayout() {
+   const colorScheme = useColorScheme();
+ 
+   return (
+-    <Tabs
+-      screenOptions={{
+-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+-        headerShown: false,
+-        tabBarButton: HapticTab,
+-      }}>
+-      <Tabs.Screen
+-        name="index"
+-        options={{
+-          title: 'Log',
+-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="plus.circle.fill" color={color} />,
+-        }}
+-      />
+-      <Tabs.Screen
+-        name="history"
+-        options={{
+-          title: 'History',
+-          headerShown: true,
+-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
+-        }}
+-      />
+-      <Tabs.Screen
+-        name="exercises"
+-        options={{
+-          title: 'Exercises',
+-          headerShown: true,
+-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="dumbbell.fill" color={color} />,
+-        }}
+-      />
+-      <Tabs.Screen
+-        name="progress"
+-        options={{
+-          title: 'Progress',
+-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="chart.line.uptrend.xyaxis" color={color} />,
+-        }}
+-      />
+-    </Tabs>
++    <View style={{ flex: 1 }}>
++      <Tabs
++        screenOptions={{
++          tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
++          headerShown: false,
++          tabBarButton: HapticTab,
++        }}>
++        <Tabs.Screen
++          name="index"
++          options={{
++            title: 'Log',
++            tabBarIcon: ({ color }) => <IconSymbol size={28} name="plus.circle.fill" color={color} />,
++          }}
++        />
++        <Tabs.Screen
++          name="history"
++          options={{
++            title: 'History',
++            headerShown: true,
++            tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
++          }}
++        />
++        <Tabs.Screen
++          name="exercises"
++          options={{
++            title: 'Exercises',
++            headerShown: true,
++            tabBarIcon: ({ color }) => <IconSymbol size={28} name="dumbbell.fill" color={color} />,
++          }}
++        />
++        <Tabs.Screen
++          name="progress"
++          options={{
++            title: 'Progress',
++            tabBarIcon: ({ color }) => <IconSymbol size={28} name="chart.line.uptrend.xyaxis" color={color} />,
++          }}
++        />
++      </Tabs>
++      <WorkoutMiniBar />
++    </View>
+   );
+ }
+diff --git a/app/(tabs)/exercises.tsx b/app/(tabs)/exercises.tsx
+index fc61c6b..6a4dd59 100644
+--- a/app/(tabs)/exercises.tsx
++++ b/app/(tabs)/exercises.tsx
+@@ -62,8 +62,8 @@ export default function ExercisesScreen() {
+         returnKeyType="search"
+       />
+ 
+-      <FilterBar options={MUSCLE_GROUPS} selected={muscleGroup} onSelect={setMuscleGroup} />
+-      <FilterBar options={EQUIPMENT_TYPES} selected={equipmentType} onSelect={setEquipmentType} />
++      <FilterBar label="Body Part" options={MUSCLE_GROUPS} selected={muscleGroup} onSelect={setMuscleGroup} />
++      <FilterBar label="Equipment" options={EQUIPMENT_TYPES} selected={equipmentType} onSelect={setEquipmentType} />
+ 
+       <View style={styles.toggleRow}>
+         <Text style={styles.toggleLabel}>Performed only</Text>
+diff --git a/app/(tabs)/index.tsx b/app/(tabs)/index.tsx
+index f8d5671..621af75 100644
+--- a/app/(tabs)/index.tsx
++++ b/app/(tabs)/index.tsx
+@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
+   safeArea: { flex: 1, backgroundColor: '#1C1C1E' },
+   listContent: { padding: 20, gap: 12 },
+ 
+-  screenTitle: { fontSize: 28, fontWeight: '700', marginBottom: 4, color: '#FFFFFF' },
++  screenTitle: { fontSize: 28, fontWeight: '700', marginBottom: 20, color: '#FFFFFF' },
+ 
+   startBtn: {
+     backgroundColor: '#007AFF',
+diff --git a/app/workout/[id].tsx b/app/workout/[id].tsx
+index 53ca0bd..5a7dc6a 100644
+--- a/app/workout/[id].tsx
++++ b/app/workout/[id].tsx
+@@ -9,6 +9,9 @@ import {
+   type EnrichedSet,
+ } from '@/components/history/WorkoutDetailExercise';
+ import type { WorkoutHistoryDetail, WorkoutHistoryExercise } from '@/db/types';
++import { useWorkoutStore } from '@/store/workout';
++import { startWorkoutFromSession } from '@/utils/start-from-session';
++import { saveWorkoutAsTemplate } from '@/db/queries/templates';
+ 
+ interface EnrichedExercise {
+   workout_exercise_id: number;
+@@ -79,6 +82,54 @@ export default function WorkoutDetailScreen() {
+     );
+   }
+ 
++  function handlePerformAgain() {
++    const activeSessionId = useWorkoutStore.getState().sessionId;
++    if (activeSessionId != null) {
++      Alert.alert(
++        'Workout in Progress',
++        'You have an active workout. Cancel it to start this one?',
++        [
++          { text: 'Cancel', style: 'cancel' },
++          {
++            text: 'Start Anyway',
++            style: 'destructive',
++            onPress: async () => {
++              const { clearWorkout, startWorkout, addExerciseToSession } = useWorkoutStore.getState();
++              clearWorkout();
++              const ok = await startWorkoutFromSession(db, { startWorkout, addExerciseToSession }, Number(id));
++              if (ok) router.push('/workout/active');
++            },
++          },
++        ]
++      );
++      return;
++    }
++    const { startWorkout, addExerciseToSession } = useWorkoutStore.getState();
++    startWorkoutFromSession(db, { startWorkout, addExerciseToSession }, Number(id)).then((ok) => {
++      if (ok) router.push('/workout/active');
++    });
++  }
++
++  function handleSaveAsTemplate() {
++    Alert.prompt(
++      'Save as Template',
++      'Enter a name for this template:',
++      [
++        { text: 'Cancel', style: 'cancel' },
++        {
++          text: 'Save',
++          onPress: async (name?: string) => {
++            const templateName = (name ?? '').trim() || (detail?.name ?? 'My Template');
++            await saveWorkoutAsTemplate(db, Number(id), templateName);
++            Alert.alert('Saved', `Template "${templateName}" created.`);
++          },
++        },
++      ],
++      'plain-text',
++      detail?.name ?? ''
++    );
++  }
++
+   useLayoutEffect(() => {
+     navigation.setOptions({
+       headerRight: () => (
+@@ -168,6 +219,20 @@ export default function WorkoutDetailScreen() {
+           sets={ex.sets}
+         />
+       ))}
++      <View style={styles.actionRow}>
++        <TouchableOpacity
++          style={[styles.actionBtn, styles.actionBtnSecondary]}
++          onPress={handleSaveAsTemplate}
++        >
++          <Text style={styles.actionBtnSecondaryText}>Save as Template</Text>
++        </TouchableOpacity>
++        <TouchableOpacity
++          style={[styles.actionBtn, styles.actionBtnPrimary]}
++          onPress={handlePerformAgain}
++        >
++          <Text style={styles.actionBtnPrimaryText}>Perform Again</Text>
++        </TouchableOpacity>
++      </View>
+     </ScrollView>
+   );
+ }
+@@ -201,4 +266,15 @@ const styles = StyleSheet.create({
+   statValue: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+   statLabel: { fontSize: 11, color: '#8E8E93', textTransform: 'uppercase' },
+   statDivider: { width: StyleSheet.hairlineWidth, height: 32, backgroundColor: '#38383A' },
++
++  actionRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
++  actionBtn: { flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
++  actionBtnPrimary: { backgroundColor: '#007AFF' },
++  actionBtnSecondary: {
++    backgroundColor: '#2C2C2E',
++    borderWidth: StyleSheet.hairlineWidth,
++    borderColor: '#38383A',
++  },
++  actionBtnPrimaryText: { color: '#fff', fontWeight: '600', fontSize: 16 },
++  actionBtnSecondaryText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16 },
+ });
+diff --git a/app/workout/active.tsx b/app/workout/active.tsx
+index 6ea1f4a..8dc3bc1 100644
+--- a/app/workout/active.tsx
++++ b/app/workout/active.tsx
+@@ -14,10 +14,9 @@ import { useSQLiteContext } from 'expo-sqlite';
+ import { useWorkoutStore } from '@/store/workout';
+ import { finishWorkoutSession, cancelWorkoutSession, updateSessionName, saveSessionCalories } from '@/db/queries/workouts';
+ import { initHealthKit, getLatestWeight, estimateCalories, writeStrengthWorkout } from '@/services/health';
+-import { deleteWorkoutExercise } from '@/db/queries/sets';
++import { deleteWorkoutExercise, deleteEmptySetsForSession } from '@/db/queries/sets';
+ import { ExerciseCard } from '@/components/workout/ExerciseCard';
+ import { WorkoutTimer } from '@/components/workout/WorkoutTimer';
+-import { RestTimerBar } from '@/components/workout/RestTimerBar';
+ import { CustomKeyboard, KEYBOARD_CONTENT_HEIGHT } from '@/components/workout/CustomKeyboard';
+ import { WorkoutKeyboardProvider, useWorkoutKeyboard } from '@/context/WorkoutKeyboardContext';
+ import { getElapsedSeconds } from '@/utils/calculations';
+@@ -70,6 +69,7 @@ function ActiveContent() {
+           if (sessionId == null || startedAt == null) return;
+           const finishedAt = Date.now();
+           const durationSeconds = getElapsedSeconds(startedAt);
++          await deleteEmptySetsForSession(db, sessionId);
+           await finishWorkoutSession(db, sessionId, durationSeconds, finishedAt);
+           const finishedSessionId = sessionId;
+           clearWorkout();
+@@ -133,6 +133,13 @@ function ActiveContent() {
+             returnKeyType="done"
+           />
+           <WorkoutTimer />
++          <TouchableOpacity
++            onPress={() => router.navigate('/(tabs)')}
++            style={styles.minimizeBtn}
++            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
++          >
++            <Text style={styles.minimizeBtnText}>−</Text>
++          </TouchableOpacity>
+         </View>
+         <View style={styles.actionRow}>
+           <TouchableOpacity onPress={handleCancel}>
+@@ -177,7 +184,6 @@ function ActiveContent() {
+         </TouchableOpacity>
+       </ScrollView>
+ 
+-      {mode === 'hidden' && <RestTimerBar />}
+       <CustomKeyboard />
+     </SafeAreaView>
+   );
+@@ -217,4 +223,14 @@ const styles = StyleSheet.create({
+     backgroundColor: '#2C2C2E',
+   },
+   addExerciseText: { color: '#007AFF', fontWeight: '600', fontSize: 16 },
++  minimizeBtn: {
++    paddingLeft: 10,
++    paddingVertical: 4,
++  },
++  minimizeBtnText: {
++    color: '#8E8E93',
++    fontSize: 26,
++    fontWeight: '300',
++    lineHeight: 28,
++  },
+ });
+diff --git a/components/workout/ExerciseCard.tsx b/components/workout/ExerciseCard.tsx
+index 2f3c384..45ef35d 100644
+--- a/components/workout/ExerciseCard.tsx
++++ b/components/workout/ExerciseCard.tsx
+@@ -326,9 +326,21 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise, onRegisterFocu
+       return next;
+     });
+     if (!currentlyDone) {
++      // Auto-fill previous data if weight or reps are empty
++      const setIndex = sets.findIndex((s) => s.id === setId);
++      if (setIndex >= 0) {
++        const currentSet = sets[setIndex];
++        const prevSet = prevSets[setIndex];
++        if (prevSet) {
++          const updates: { weightLbs?: number | null; reps?: number | null } = {};
++          if (currentSet.weight_lbs == null && prevSet.weight_lbs != null) updates.weightLbs = prevSet.weight_lbs;
++          if (currentSet.reps == null && prevSet.reps != null) updates.reps = prevSet.reps;
++          if (Object.keys(updates).length > 0) await handleUpdateSet(setId, updates);
++        }
++      }
+       await startTimerAt(restDuration);
+     }
+-  }, [restDuration, startTimerAt]);
++  }, [restDuration, startTimerAt, sets, prevSets, handleUpdateSet]);
+ 
+   const handleExtendTimer = useCallback(() => {
+     handleAdjustTimer(30);
+@@ -366,7 +378,7 @@ export function ExerciseCard({ workoutExercise, onDeleteExercise, onRegisterFocu
+           <Text style={[styles.colLabel, { flex: 1 }]}>Previous</Text>
+           {!workoutExercise.isBodyweight && <Text style={styles.colLabel}>lbs</Text>}
+           <Text style={styles.colLabel}>Reps</Text>
+-          <Text style={[styles.colLabel, { width: 36 }]}>✓</Text>
++          <Text style={[styles.colLabel, { width: 28 }]}>✓</Text>
+         </View>
+       )}
+       {sets.map((s, idx) => {
+diff --git a/components/workout/SetRow.tsx b/components/workout/SetRow.tsx
+index 10e6f12..ca06e2d 100644
+--- a/components/workout/SetRow.tsx
++++ b/components/workout/SetRow.tsx
+@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
+     backgroundColor: '#3A3A3C',
+     color: '#FFFFFF',
+   },
+-  prev: { color: '#8E8E93', fontSize: 12, flex: 1 },
++  prev: { color: '#8E8E93', fontSize: 12, flex: 1, textAlign: 'center' },
+   deleteAction: {
+     backgroundColor: '#FF3B30',
+     justifyContent: 'center',
+diff --git a/components/workout/WorkoutMiniBar.tsx b/components/workout/WorkoutMiniBar.tsx
+new file mode 100644
+index 0000000..56cebc9
+--- /dev/null
++++ b/components/workout/WorkoutMiniBar.tsx
+@@ -0,0 +1,87 @@
++import { useEffect, useState } from 'react';
++import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
++import { router } from 'expo-router';
++import { useSafeAreaInsets } from 'react-native-safe-area-context';
++import { useWorkoutStore } from '@/store/workout';
++import { useWorkoutTimer } from '@/hooks/use-workout-timer';
++import { formatDuration } from '@/utils/calculations';
++
++export function WorkoutMiniBar() {
++  const sessionId = useWorkoutStore((s) => s.sessionId);
++  const sessionName = useWorkoutStore((s) => s.sessionName);
++  const restTimer = useWorkoutStore((s) => s.restTimer);
++  const elapsedSeconds = useWorkoutTimer();
++  const insets = useSafeAreaInsets();
++  const [restSecondsLeft, setRestSecondsLeft] = useState(0);
++
++  useEffect(() => {
++    if (!restTimer.isRunning || restTimer.endsAt == null) {
++      setRestSecondsLeft(0);
++      return;
++    }
++    const tick = () => {
++      const left = Math.max(0, Math.ceil((restTimer.endsAt! - Date.now()) / 1000));
++      setRestSecondsLeft(left);
++      if (left === 0) clearInterval(interval);
++    };
++    tick();
++    const interval = setInterval(tick, 1000);
++    return () => clearInterval(interval);
++  }, [restTimer.isRunning, restTimer.endsAt]);
++
++  if (sessionId == null) return null;
++
++  const TAB_BAR_HEIGHT = 49;
++
++  return (
++    <TouchableOpacity
++      style={[styles.bar, { bottom: TAB_BAR_HEIGHT + insets.bottom }]}
++      onPress={() => router.push('/workout/active')}
++      activeOpacity={0.85}
++    >
++      <View style={styles.left}>
++        <Text style={styles.name} numberOfLines={1}>
++          {sessionName || 'Workout'}
++        </Text>
++        <Text style={styles.separator}>•</Text>
++        <Text style={styles.duration}>{formatDuration(elapsedSeconds)}</Text>
++      </View>
++      {restTimer.isRunning && restSecondsLeft > 0 && (
++        <View style={styles.timerPill}>
++          <Text style={styles.timerText}>{formatDuration(restSecondsLeft)}</Text>
++        </View>
++      )}
++      <Text style={styles.chevron}>›</Text>
++    </TouchableOpacity>
++  );
++}
++
++const styles = StyleSheet.create({
++  bar: {
++    position: 'absolute',
++    left: 0,
++    right: 0,
++    flexDirection: 'row',
++    alignItems: 'center',
++    backgroundColor: '#2C2C2E',
++    borderTopWidth: StyleSheet.hairlineWidth,
++    borderTopColor: '#38383A',
++    paddingHorizontal: 16,
++    paddingVertical: 10,
++    gap: 12,
++    zIndex: 100,
++    elevation: 10,
++  },
++  left: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
++  name: { fontSize: 15, fontWeight: '600', color: '#FFFFFF', flexShrink: 1 },
++  separator: { color: '#8E8E93', fontSize: 14 },
++  duration: { fontSize: 14, color: '#8E8E93', fontVariant: ['tabular-nums'] },
++  timerPill: {
++    backgroundColor: '#007AFF',
++    borderRadius: 12,
++    paddingHorizontal: 10,
++    paddingVertical: 3,
++  },
++  timerText: { color: '#fff', fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
++  chevron: { color: '#8E8E93', fontSize: 22, fontWeight: '300' },
++});
+diff --git a/db/queries/sets.ts b/db/queries/sets.ts
+index 3396cb0..9fad512 100644
+--- a/db/queries/sets.ts
++++ b/db/queries/sets.ts
+@@ -91,3 +91,14 @@ export async function getSetsForWorkoutExercise(
+     workoutExerciseId
+   );
+ }
++
++export async function deleteEmptySetsForSession(db: SQLiteDatabase, sessionId: number): Promise<void> {
++  await db.runAsync(
++    `DELETE FROM sets
++     WHERE workout_exercise_id IN (
++       SELECT id FROM workout_exercises WHERE session_id = ?
++     )
++     AND weight_lbs IS NULL AND reps IS NULL`,
++    sessionId
++  );
++}
+diff --git a/utils/start-from-session.ts b/utils/start-from-session.ts
+new file mode 100644
+index 0000000..f7be0ed
+--- /dev/null
++++ b/utils/start-from-session.ts
+@@ -0,0 +1,37 @@
++import { type SQLiteDatabase } from 'expo-sqlite';
++import { getWorkoutDetail } from '@/db/queries/history';
++import { createWorkoutSession } from '@/db/queries/workouts';
++import { addWorkoutExercise, addSet } from '@/db/queries/sets';
++import type { ActiveWorkoutStore } from '@/store/workout';
++
++export async function startWorkoutFromSession(
++  db: SQLiteDatabase,
++  store: Pick<ActiveWorkoutStore, 'startWorkout' | 'addExerciseToSession'>,
++  sessionId: number
++): Promise<boolean> {
++  const workout = await getWorkoutDetail(db, sessionId);
++  if (!workout) return false;
++
++  const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
++  const name = `${dayName} Workout`;
++  const { id: newSessionId, startedAt } = await createWorkoutSession(db, name);
++  store.startWorkout(newSessionId, name, startedAt);
++
++  for (const ex of workout.exercises) {
++    const workoutExerciseId = await addWorkoutExercise(
++      db, newSessionId, ex.exercise_id, ex.order_index
++    );
++    store.addExerciseToSession({
++      workoutExerciseId,
++      exerciseId: ex.exercise_id,
++      exerciseName: ex.exercise_name,
++      isBodyweight: ex.is_bodyweight === 1,
++      orderIndex: ex.order_index,
++    });
++    const setCount = ex.sets.length > 0 ? ex.sets.length : 1;
++    for (let i = 0; i < setCount; i++) {
++      await addSet(db, workoutExerciseId, { setNumber: i + 1, weightLbs: null, reps: null });
++    }
++  }
++  return true;
++}
+-- 
+2.43.0
+
