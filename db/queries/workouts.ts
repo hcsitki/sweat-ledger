@@ -1,5 +1,6 @@
 import { type SQLiteDatabase } from 'expo-sqlite';
 import { type WorkoutSession } from '../types';
+import { syncNow } from '@/lib/sync';
 
 export async function createWorkoutSession(
   db: SQLiteDatabase,
@@ -37,6 +38,7 @@ export async function finishWorkoutSession(
     durationSeconds,
     id
   );
+  syncNow(db); // fire-and-forget
 }
 
 export async function saveSessionCalories(

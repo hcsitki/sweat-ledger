@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, ActivityIndicator, Alert, Touchable
 import { useLocalSearchParams, useNavigation, router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { getWorkoutDetail, getBestEpley1RMBeforeSession, deleteWorkout } from '@/db/queries/history';
+import { deleteSessionFromCloud } from '@/lib/sync';
 import { calculateEpley1RM, formatDuration } from '@/utils/calculations';
 import {
   WorkoutDetailExercise,
@@ -74,6 +75,7 @@ export default function WorkoutDetailScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
+            void deleteSessionFromCloud(db, Number(id));
             await deleteWorkout(db, Number(id));
             router.back();
           },

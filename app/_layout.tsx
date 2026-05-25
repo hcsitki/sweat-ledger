@@ -10,6 +10,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { migrateDb } from '@/db/schema';
 import { requestNotificationPermissions } from '@/utils/notifications';
 import { SessionRestorer } from '@/components/workout/SessionRestorer';
+import { SyncManager } from '@/components/SyncManager';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -27,6 +28,7 @@ export default function RootLayout() {
     <SQLiteProvider databaseName="sweat-ledger.db" onInit={migrateDb}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <SessionRestorer />
+        <SyncManager />
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />

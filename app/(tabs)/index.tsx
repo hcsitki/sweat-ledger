@@ -6,6 +6,7 @@ import {
   FlatList,
   Pressable,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
@@ -16,6 +17,58 @@ import { createWorkoutSession } from '@/db/queries/workouts';
 import { getTemplates } from '@/db/queries/templates';
 import { startWorkoutFromTemplate } from '@/utils/start-from-template';
 import type { WorkoutTemplate } from '@/db/types';
+import { useSyncStore } from '@/store/sync';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+
+function formatSyncTime(ts: number): string {
+  const diffMin = Math.floor((Date.now() - ts) / 60000);
+  if (diffMin < 1) return 'Just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return `${Math.floor(diffHr / 24)}d ago`;
+}
+
+function SyncIndicator() {
+  const { status, lastSyncedAt, errorMessage } = useSyncStore();
+
+  if (status === 'syncing') {
+    return (
+      <View style={syncStyles.row}>
+        <ActivityIndicator size="small" color="#8E8E93" />
+        <Text style={syncStyles.text}>Syncing...</Text>
+      </View>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <View style={syncStyles.row}>
+        <IconSymbol name="exclamationmark.icloud.fill" size={14} color="#FF9F0A" />
+        <Text style={[syncStyles.text, syncStyles.errorText]}>
+          {errorMessage ?? 'Sync failed'}
+        </Text>
+      </View>
+    );
+  }
+
+  if (lastSyncedAt) {
+    return (
+      <View style={syncStyles.row}>
+        <IconSymbol name="checkmark.icloud.fill" size={14} color="#3A3A3C" />
+        <Text style={syncStyles.text}>{formatSyncTime(lastSyncedAt)}</Text>
+      </View>
+    );
+  }
+
+  return null;
+}
+
+const syncStyles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  text: { fontSize: 12, color: '#636366' },
+  errorText: { color: '#FF9F0A' },
+});
 
 type TemplateListItem = WorkoutTemplate & { exercise_count: number };
 
@@ -66,7 +119,7 @@ export default function LogScreen() {
     if (ok) router.push('/workout/active');
   };
 
-  if (sessionId != null) {
+if (sessionId != null) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.bannerContainer}>
@@ -90,7 +143,10 @@ export default function LogScreen() {
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
           <>
-            <Text style={styles.screenTitle}>Log</Text>
+            <View style={styles.titleRow}>
+              <Text style={styles.screenTitle}>Log</Text>
+              <SyncIndicator />
+            </View>
             <TouchableOpacity style={styles.startBtn} onPress={handleStartEmpty}>
               <Text style={styles.btnText}>Start Empty Workout</Text>
             </TouchableOpacity>
@@ -141,7 +197,8 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#1C1C1E' },
   listContent: { padding: 20, gap: 12 },
 
-  screenTitle: { fontSize: 28, fontWeight: '700', marginBottom: 20, color: '#FFFFFF' },
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20 },
+  screenTitle: { fontSize: 28, fontWeight: '700', color: '#FFFFFF' },
 
   startBtn: {
     backgroundColor: '#007AFF',

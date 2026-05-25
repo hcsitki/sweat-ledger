@@ -1,0 +1,9 @@
+name = "sweat-ledger-sync"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sweat-ledger-sync"
+database_id = "5e028f27-8d37-4f4b-ae9e-8617b376c37c"

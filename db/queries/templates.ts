@@ -6,6 +6,7 @@ import {
   type TemplateWithDetails,
 } from '../types';
 import { getWorkoutExercisesForSession, getSetsForWorkoutExercise } from './sets';
+import { syncNow } from '@/lib/sync';
 
 export async function getTemplates(
   db: SQLiteDatabase
@@ -193,8 +194,9 @@ export async function saveWorkoutAsTemplate(
 
 async function touchTemplate(db: SQLiteDatabase, templateId: number): Promise<void> {
   await db.runAsync(
-    'UPDATE workout_templates SET updated_at = ? WHERE id = ?',
+    'UPDATE workout_templates SET updated_at = ?, synced_at = NULL WHERE id = ?',
     Date.now(),
     templateId
   );
+  syncNow(db); // fire-and-forget
 }

@@ -8,6 +8,7 @@ export interface Exercise {
   is_custom: number;
   instructions: string | null;
   created_at: number;
+  synced_at: number | null;
 }
 
 export interface ExerciseGroup {
@@ -45,6 +46,7 @@ export interface WorkoutSession {
   finished_at: number | null;
   duration_seconds: number | null;
   calories_burned: number | null;
+  synced_at: number | null;
 }
 
 export interface WorkoutExercise {
@@ -75,6 +77,7 @@ export interface WorkoutTemplate {
   name: string;
   created_at: number;
   updated_at: number;
+  synced_at: number | null;
 }
 
 export interface TemplateExercise {

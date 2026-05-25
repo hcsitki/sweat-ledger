@@ -290,6 +290,10 @@ export async function migrateDb(db: SQLiteDatabase) {
   if (version < 7) {
     await migrateToV7(db);
   }
+
+  if (version < 8) {
+    await migrateToV8(db);
+  }
 }
 
 async function migrateToV6(db: SQLiteDatabase) {
@@ -300,6 +304,37 @@ async function migrateToV6(db: SQLiteDatabase) {
 async function migrateToV7(db: SQLiteDatabase) {
   await db.execAsync('ALTER TABLE sets ADD COLUMN is_done INTEGER NOT NULL DEFAULT 0');
   await db.execAsync('PRAGMA user_version = 7');
+}
+
+async function migrateToV8(db: SQLiteDatabase) {
+  await db.execAsync('ALTER TABLE workout_sessions ADD COLUMN synced_at INTEGER');
+  await db.execAsync('ALTER TABLE workout_templates ADD COLUMN synced_at INTEGER');
+  await db.execAsync('ALTER TABLE exercises ADD COLUMN synced_at INTEGER');
+
+  // Generate a UUID for this device if one doesn't exist yet
+  const existing = await db.getFirstAsync<{ value: string }>(
+    "SELECT value FROM settings WHERE key = 'device_id'"
+  );
+  if (!existing) {
+    const deviceId = generateUUID();
+    await db.runAsync(
+      "INSERT INTO settings (key, value) VALUES ('device_id', ?)",
+      deviceId
+    );
+  }
+
+  await db.execAsync('PRAGMA user_version = 8');
+}
+
+function generateUUID(): string {
+  const bytes = new Uint8Array(16);
+  for (let i = 0; i < 16; i++) {
+    bytes[i] = Math.floor(Math.random() * 256);
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant bits
+  const hex = Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 async function migrateToV3(db: SQLiteDatabase) {
