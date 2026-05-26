@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { initHealthKit, getLatestWeight, getLatestBodyFat } from '@/services/health';
+import { initHealthKit, getLatestWeight, getLatestBodyFat, getLatestHeight } from '@/services/health';
 
 interface HealthData {
   weightLbs: number | null;
   bodyFatPercent: number | null;
+  heightM: number | null;
   isAuthorized: boolean;
   isLoading: boolean;
   // true once initHealthKit has completed at least once — distinguishes
@@ -15,6 +16,7 @@ interface HealthData {
 export function useHealthData(): HealthData {
   const [weightLbs, setWeightLbs] = useState<number | null>(null);
   const [bodyFatPercent, setBodyFatPercent] = useState<number | null>(null);
+  const [heightM, setHeightM] = useState<number | null>(null);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasAttempted, setHasAttempted] = useState(false);
@@ -25,9 +27,14 @@ export function useHealthData(): HealthData {
       const ok = await initHealthKit();
       setIsAuthorized(ok);
       if (ok) {
-        const [weight, bodyFat] = await Promise.all([getLatestWeight(), getLatestBodyFat()]);
+        const [weight, bodyFat, height] = await Promise.all([
+          getLatestWeight(),
+          getLatestBodyFat(),
+          getLatestHeight(),
+        ]);
         setWeightLbs(weight);
         setBodyFatPercent(bodyFat);
+        setHeightM(height);
       }
     } catch {
       // Native module unavailable or threw — treated as not authorized
@@ -41,5 +48,5 @@ export function useHealthData(): HealthData {
     load();
   }, [load]);
 
-  return { weightLbs, bodyFatPercent, isAuthorized, isLoading, hasAttempted, refresh: load };
+  return { weightLbs, bodyFatPercent, heightM, isAuthorized, isLoading, hasAttempted, refresh: load };
 }

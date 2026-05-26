@@ -204,6 +204,28 @@ export async function getDailyTonnage(db: SQLiteDatabase, daysBack = 112): Promi
   );
 }
 
+export interface WeeklyTonnage {
+  week_start: string; // YYYY-MM-DD of the Monday of that week
+  tonnage: number;
+}
+
+export async function getWeeklyTonnage(db: SQLiteDatabase, weeksBack = 12): Promise<WeeklyTonnage[]> {
+  const cutoffMs = Date.now() - weeksBack * 7 * 24 * 60 * 60 * 1000;
+  return db.getAllAsync<WeeklyTonnage>(
+    `SELECT
+       date(date(ws.started_at / 1000, 'unixepoch', 'localtime'), 'weekday 0', '-6 days') AS week_start,
+       COALESCE(SUM(CASE WHEN s.weight_lbs > 0 AND s.reps > 0 THEN s.weight_lbs * s.reps ELSE 0 END), 0) AS tonnage
+     FROM workout_sessions ws
+     LEFT JOIN workout_exercises we ON we.session_id = ws.id
+     LEFT JOIN sets s ON s.workout_exercise_id = we.id
+     WHERE ws.status = 'completed'
+       AND ws.started_at >= ?
+     GROUP BY week_start
+     ORDER BY week_start ASC`,
+    cutoffMs
+  );
+}
+
 export async function deleteWorkout(db: SQLiteDatabase, sessionId: number): Promise<void> {
   await db.runAsync('DELETE FROM workout_sessions WHERE id = ?', sessionId);
 }

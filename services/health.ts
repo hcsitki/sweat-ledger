@@ -22,6 +22,7 @@ export async function initHealthKit(): Promise<boolean> {
       toRead: [
         'HKQuantityTypeIdentifierBodyMass',
         'HKQuantityTypeIdentifierBodyFatPercentage',
+        'HKQuantityTypeIdentifierHeight',
       ],
     });
   } catch (e) {
@@ -72,6 +73,19 @@ export async function getWeightSamples(start: Date, end: Date): Promise<HealthSa
     }));
   } catch {
     return [];
+  }
+}
+
+export async function getLatestHeight(): Promise<number | null> {
+  if (Platform.OS !== 'ios') return null;
+  try {
+    const sample = await getMostRecentQuantitySample(
+      'HKQuantityTypeIdentifierHeight',
+      'm'
+    );
+    return sample?.quantity ?? null;
+  } catch {
+    return null;
   }
 }
 
