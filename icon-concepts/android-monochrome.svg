@@ -8,6 +8,6 @@
       <rect x="416" y="666" width="192" height="21" rx="10" fill="black"/>
     </mask>
   </defs>
-  <path d="M 512 250 C 672 382, 672 478, 672 622 A 160 160 0 0 1 352 622 C 352 478, 352 382, 512 250 Z"
+  <path d="M 512 150 C 512 320, 706 500, 706 642 A 194 194 0 0 1 318 642 C 318 500, 512 320, 512 150 Z"
         fill="white" mask="url(#linecutouts)"/>
 </svg>
