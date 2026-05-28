@@ -1,24 +1,24 @@
-import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  Pressable,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { getTemplates } from '@/db/queries/templates';
+import { createWorkoutSession } from '@/db/queries/workouts';
+import type { WorkoutTemplate } from '@/db/types';
+import { useSyncStore } from '@/store/sync';
+import { useWorkoutStore } from '@/store/workout';
+import { startWorkoutFromTemplate } from '@/utils/start-from-template';
 import { router, useFocusEffect, useLocalSearchParams, type Href } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
-import { useWorkoutStore } from '@/store/workout';
-import { createWorkoutSession } from '@/db/queries/workouts';
-import { getTemplates } from '@/db/queries/templates';
-import { startWorkoutFromTemplate } from '@/utils/start-from-template';
-import type { WorkoutTemplate } from '@/db/types';
-import { useSyncStore } from '@/store/sync';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 function formatSyncTime(ts: number): string {
   const diffMin = Math.floor((Date.now() - ts) / 60000);
