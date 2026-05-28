@@ -22,6 +22,7 @@ export async function scheduleRestTimerNotification(seconds: number): Promise<st
     content: {
       title: 'Rest complete',
       body: 'Time to get back to it!',
+      sound: 'rest_complete.mp3',
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,

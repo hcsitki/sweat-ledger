@@ -59,7 +59,8 @@
       [
         "expo-notifications",
         {
-          "iosDisplayInForeground": true
+          "iosDisplayInForeground": true,
+          "sounds": ["./assets/sounds/rest_complete.mp3"]
         }
       ],
       [
