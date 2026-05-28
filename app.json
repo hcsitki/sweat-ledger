@@ -69,7 +69,8 @@
           "NSHealthUpdateUsageDescription": "Sweat Ledger saves your workouts to Apple Health.",
           "background": false
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

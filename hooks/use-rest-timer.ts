@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useAudioPlayer } from 'expo-audio';
 import { useWorkoutStore } from '../store/workout';
 import { cancelNotification } from '../utils/notifications';
 
@@ -14,6 +15,7 @@ export function useRestTimer(): RestTimerResult {
   const stopRestTimer = useWorkoutStore((s) => s.stopRestTimer);
   const extendRestTimer = useWorkoutStore((s) => s.extendRestTimer);
 
+  const player = useAudioPlayer(require('../assets/sounds/rest_complete.mp3'));
   const [secondsRemaining, setSecondsRemaining] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -30,7 +32,10 @@ export function useRestTimer(): RestTimerResult {
     const tick = () => {
       const remaining = Math.max(0, Math.ceil((restTimer.endsAt! - Date.now()) / 1000));
       setSecondsRemaining(remaining);
-      if (remaining === 0) stopRestTimer();
+      if (remaining === 0) {
+        player.play();
+        stopRestTimer();
+      }
     };
 
     tick();
