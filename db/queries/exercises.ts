@@ -280,16 +280,18 @@ export async function createCustomExercise(
   db: SQLiteDatabase,
   data: {
     name: string;
+    baseName?: string;
     muscleGroup: string;
     equipmentType: string;
     isBodyweight: boolean;
     instructions?: string;
   }
 ): Promise<number> {
+  const base_name = data.baseName?.trim() || data.name;
   const result = await db.runAsync(
     'INSERT INTO exercises (name, base_name, muscle_group, equipment_type, is_bodyweight, is_custom, instructions) VALUES (?, ?, ?, ?, ?, 1, ?)',
     data.name,
-    data.name,
+    base_name,
     data.muscleGroup,
     data.equipmentType,
     data.isBodyweight ? 1 : 0,
@@ -313,6 +315,31 @@ export async function updateCustomExercise(
     'UPDATE exercises SET name = ?, base_name = ?, muscle_group = ?, equipment_type = ?, is_bodyweight = ?, instructions = ? WHERE id = ? AND is_custom = 1',
     data.name,
     data.name,
+    data.muscleGroup,
+    data.equipmentType,
+    data.isBodyweight ? 1 : 0,
+    data.instructions ?? null,
+    id
+  );
+}
+
+export async function updateExercise(
+  db: SQLiteDatabase,
+  id: number,
+  data: {
+    name: string;
+    baseName?: string;
+    muscleGroup: string;
+    equipmentType: string;
+    isBodyweight: boolean;
+    instructions?: string;
+  }
+): Promise<void> {
+  const base_name = data.baseName?.trim() || data.name;
+  await db.runAsync(
+    'UPDATE exercises SET name = ?, base_name = ?, muscle_group = ?, equipment_type = ?, is_bodyweight = ?, instructions = ?, synced_at = NULL WHERE id = ?',
+    data.name,
+    base_name,
     data.muscleGroup,
     data.equipmentType,
     data.isBodyweight ? 1 : 0,

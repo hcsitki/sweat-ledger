@@ -94,6 +94,16 @@ export default function ExerciseGroupScreen() {
               <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
           ))}
+          <TouchableOpacity
+            style={styles.addVariationRow}
+            activeOpacity={0.7}
+            onPress={() => router.push({
+              pathname: '/exercise/create',
+              params: { baseName: baseName, muscleGroup: variants[0]?.muscle_group },
+            })}
+          >
+            <Text style={styles.addVariationText}>+ Add variation</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -189,6 +199,11 @@ const styles = StyleSheet.create({
   },
   customBadgeText: { fontSize: 11, color: '#007AFF' },
   chevron: { fontSize: 20, color: '#636366' },
+  addVariationRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  addVariationText: { fontSize: 15, color: '#007AFF', fontWeight: '500' },
   sessionCountRow: {
     backgroundColor: '#2C2C2E',
     borderRadius: 12,

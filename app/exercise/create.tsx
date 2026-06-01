@@ -15,7 +15,7 @@ import { useLocalSearchParams, useNavigation, router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import {
   createCustomExercise,
-  updateCustomExercise,
+  updateExercise,
   getExerciseById,
 } from '@/db/queries/exercises';
 import { FilterBar } from '@/components/exercises/FilterBar';
@@ -31,17 +31,25 @@ const EQUIPMENT_TYPES = [
 
 
 export default function CreateExerciseScreen() {
-  const { editId } = useLocalSearchParams<{ editId?: string }>();
+  const { editId, baseName: baseNameParam, muscleGroup: muscleGroupParam } = useLocalSearchParams<{
+    editId?: string;
+    baseName?: string;
+    muscleGroup?: string;
+  }>();
   const db = useSQLiteContext();
   const navigation = useNavigation();
   const isEditing = editId != null;
 
   useLayoutEffect(() => {
     if (isEditing) navigation.setOptions({ title: 'Edit Exercise' });
-  }, [isEditing, navigation]);
+    else if (baseNameParam) navigation.setOptions({ title: 'Add Variation' });
+  }, [isEditing, baseNameParam, navigation]);
 
   const [name, setName] = useState('');
-  const [muscleGroup, setMuscleGroup] = useState(MUSCLE_GROUPS[0]);
+  const [variationGroup, setVariationGroup] = useState(baseNameParam ?? '');
+  const [muscleGroup, setMuscleGroup] = useState(
+    muscleGroupParam && MUSCLE_GROUPS.includes(muscleGroupParam) ? muscleGroupParam : MUSCLE_GROUPS[0]
+  );
   const [equipmentType, setEquipmentType] = useState(EQUIPMENT_TYPES[0]);
   const [isBodyweight, setIsBodyweight] = useState(false);
   const [instructions, setInstructions] = useState('');
@@ -51,6 +59,7 @@ export default function CreateExerciseScreen() {
     getExerciseById(db, Number(editId)).then((ex) => {
       if (!ex) return;
       setName(ex.name);
+      setVariationGroup(ex.base_name !== ex.name ? ex.base_name : '');
       setMuscleGroup(ex.muscle_group);
       setEquipmentType(ex.equipment_type);
       setIsBodyweight(ex.is_bodyweight === 1);
@@ -67,6 +76,7 @@ export default function CreateExerciseScreen() {
 
     const data = {
       name: trimmed,
+      baseName: variationGroup.trim() || undefined,
       muscleGroup,
       equipmentType,
       isBodyweight,
@@ -75,9 +85,12 @@ export default function CreateExerciseScreen() {
 
     try {
       if (isEditing) {
-        await updateCustomExercise(db, Number(editId), data);
+        await updateExercise(db, Number(editId), data);
       } else {
-        await createCustomExercise(db, data);
+        await createCustomExercise(db, {
+          ...data,
+          baseName: data.baseName ?? trimmed,
+        });
       }
       router.back();
     } catch {
@@ -97,11 +110,26 @@ export default function CreateExerciseScreen() {
             style={styles.input}
             value={name}
             onChangeText={setName}
-            placeholder="e.g. Cable Fly"
+            placeholder="e.g. Bench Press (Kettlebell)"
             placeholderTextColor="#636366"
             returnKeyType="done"
             autoFocus={!isEditing}
           />
+        </View>
+
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>Variation group (optional)</Text>
+          <TextInput
+            style={styles.input}
+            value={variationGroup}
+            onChangeText={setVariationGroup}
+            placeholder="e.g. Bench Press"
+            placeholderTextColor="#636366"
+            returnKeyType="done"
+          />
+          <Text style={styles.fieldHint}>
+            Group this exercise with others of the same family (e.g. "Bench Press")
+          </Text>
         </View>
 
         <FilterBar label="Muscle Group" options={MUSCLE_GROUPS} selected={muscleGroup} onSelect={setMuscleGroup} />
@@ -131,7 +159,7 @@ export default function CreateExerciseScreen() {
         </View>
 
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveText}>{isEditing ? 'Save Changes' : 'Create Exercise'}</Text>
+          <Text style={styles.saveText}>{isEditing ? 'Save Changes' : baseNameParam ? 'Add Variation' : 'Create Exercise'}</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -143,6 +171,7 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 20 },
   field: { gap: 8 },
   fieldLabel: { fontSize: 13, fontWeight: '600', color: '#8E8E93', textTransform: 'uppercase', letterSpacing: 0.5 },
+  fieldHint: { fontSize: 12, color: '#636366', marginTop: -2 },
   input: {
     backgroundColor: '#3A3A3C',
     borderRadius: 12,

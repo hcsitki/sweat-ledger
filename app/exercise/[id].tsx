@@ -52,7 +52,7 @@ export default function ExerciseDetailScreen() {
   }, [db, id]);
 
   useLayoutEffect(() => {
-    if (!exercise?.is_custom) return;
+    if (!exercise) return;
     navigation.setOptions({
       headerRight: () => (
         <TouchableOpacity onPress={handleEdit} style={{ marginRight: 4 }}>
