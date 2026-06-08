@@ -20,6 +20,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+function formatLastUsed(ts: number | null): string {
+  if (!ts) return 'Never used';
+  const days = Math.floor((Date.now() - ts) / 86400000);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+}
+
 function formatSyncTime(ts: number): string {
   const diffMin = Math.floor((Date.now() - ts) / 60000);
   if (diffMin < 1) return 'Just now';
@@ -70,7 +81,7 @@ const syncStyles = StyleSheet.create({
   errorText: { color: '#FF9F0A' },
 });
 
-type TemplateListItem = WorkoutTemplate & { exercise_count: number };
+type TemplateListItem = WorkoutTemplate & { exercise_count: number; last_used_at: number | null };
 
 export default function LogScreen() {
   const db = useSQLiteContext();
@@ -176,7 +187,7 @@ if (sessionId != null) {
             <View style={styles.templateInfo}>
               <Text style={styles.templateName}>{item.name}</Text>
               <Text style={styles.templateMeta}>
-                {item.exercise_count} exercise{item.exercise_count !== 1 ? 's' : ''}
+                {item.exercise_count} exercise{item.exercise_count !== 1 ? 's' : ''} · {formatLastUsed(item.last_used_at)}
               </Text>
             </View>
             <TouchableOpacity

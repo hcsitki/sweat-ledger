@@ -4,15 +4,24 @@ import { syncNow } from '@/lib/sync';
 
 export async function createWorkoutSession(
   db: SQLiteDatabase,
-  name: string
+  name: string,
+  templateId?: number
 ): Promise<{ id: number; startedAt: number }> {
   const startedAt = Date.now();
-  const result = await db.runAsync(
-    'INSERT INTO workout_sessions (name, status, started_at) VALUES (?, ?, ?)',
-    name,
-    'active',
-    startedAt
-  );
+  const result = templateId != null
+    ? await db.runAsync(
+        'INSERT INTO workout_sessions (name, status, started_at, template_id) VALUES (?, ?, ?, ?)',
+        name,
+        'active',
+        startedAt,
+        templateId
+      )
+    : await db.runAsync(
+        'INSERT INTO workout_sessions (name, status, started_at) VALUES (?, ?, ?)',
+        name,
+        'active',
+        startedAt
+      );
   return { id: result.lastInsertRowId, startedAt };
 }
 

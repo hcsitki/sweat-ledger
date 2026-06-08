@@ -294,6 +294,10 @@ export async function migrateDb(db: SQLiteDatabase) {
   if (version < 8) {
     await migrateToV8(db);
   }
+
+  if (version < 9) {
+    await migrateToV9(db);
+  }
 }
 
 async function migrateToV6(db: SQLiteDatabase) {
@@ -335,6 +339,11 @@ function generateUUID(): string {
   bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant bits
   const hex = Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+async function migrateToV9(db: SQLiteDatabase) {
+  await db.execAsync('ALTER TABLE workout_sessions ADD COLUMN template_id INTEGER');
+  await db.execAsync('PRAGMA user_version = 9');
 }
 
 async function migrateToV3(db: SQLiteDatabase) {

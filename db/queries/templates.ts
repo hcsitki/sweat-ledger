@@ -10,10 +10,11 @@ import { syncNow } from '@/lib/sync';
 
 export async function getTemplates(
   db: SQLiteDatabase
-): Promise<(WorkoutTemplate & { exercise_count: number })[]> {
-  return db.getAllAsync<WorkoutTemplate & { exercise_count: number }>(
+): Promise<(WorkoutTemplate & { exercise_count: number; last_used_at: number | null })[]> {
+  return db.getAllAsync<WorkoutTemplate & { exercise_count: number; last_used_at: number | null }>(
     `SELECT wt.*,
-       (SELECT COUNT(*) FROM template_exercises WHERE template_id = wt.id) AS exercise_count
+       (SELECT COUNT(*) FROM template_exercises WHERE template_id = wt.id) AS exercise_count,
+       (SELECT MAX(ws.started_at) FROM workout_sessions ws WHERE ws.template_id = wt.id) AS last_used_at
      FROM workout_templates wt
      ORDER BY wt.updated_at DESC`
   );

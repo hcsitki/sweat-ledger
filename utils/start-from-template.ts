@@ -12,7 +12,7 @@ export async function startWorkoutFromTemplate(
   const template = await getTemplateWithDetails(db, templateId);
   if (!template) return false;
 
-  const { id: sessionId, startedAt } = await createWorkoutSession(db, template.name);
+  const { id: sessionId, startedAt } = await createWorkoutSession(db, template.name, templateId);
   store.startWorkout(sessionId, template.name, startedAt);
 
   for (const ex of template.exercises) {
