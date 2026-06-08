@@ -112,6 +112,8 @@ interface DetailRow {
   started_at: number;
   finished_at: number;
   duration_seconds: number;
+  template_id: number | null;
+  template_name: string | null;
   workout_exercise_id: number;
   exercise_id: number;
   order_index: number;
@@ -132,10 +134,12 @@ export async function getWorkoutDetail(
   const rows = await db.getAllAsync<DetailRow>(
     `SELECT
        ws.id, ws.name, ws.started_at, ws.finished_at, ws.duration_seconds,
+       ws.template_id, wt.name AS template_name,
        we.id AS workout_exercise_id, we.exercise_id, we.order_index,
        e.name AS exercise_name, e.is_bodyweight,
        s.id AS set_id, s.set_number, s.weight_lbs, s.reps, s.notes, s.logged_at
      FROM workout_sessions ws
+     LEFT JOIN workout_templates wt ON wt.id = ws.template_id
      LEFT JOIN workout_exercises we ON we.session_id = ws.id
      LEFT JOIN exercises e ON e.id = we.exercise_id
      LEFT JOIN sets s ON s.workout_exercise_id = we.id
@@ -182,6 +186,8 @@ export async function getWorkoutDetail(
     started_at: first.started_at,
     finished_at: first.finished_at,
     duration_seconds: first.duration_seconds,
+    template_id: first.template_id,
+    template_name: first.template_name,
     exercises: Array.from(exerciseMap.values()),
   };
 }
@@ -223,6 +229,18 @@ export async function getWeeklyTonnage(db: SQLiteDatabase, weeksBack = 12): Prom
      GROUP BY week_start
      ORDER BY week_start ASC`,
     cutoffMs
+  );
+}
+
+export async function updateSessionTemplate(
+  db: SQLiteDatabase,
+  sessionId: number,
+  templateId: number | null
+): Promise<void> {
+  await db.runAsync(
+    'UPDATE workout_sessions SET template_id = ? WHERE id = ?',
+    templateId,
+    sessionId
   );
 }
 

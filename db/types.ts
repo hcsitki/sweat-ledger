@@ -148,6 +148,8 @@ export interface WorkoutHistoryDetail {
   started_at: number;
   finished_at: number;
   duration_seconds: number;
+  template_id: number | null;
+  template_name: string | null;
   exercises: WorkoutHistoryExercise[];
 }
 

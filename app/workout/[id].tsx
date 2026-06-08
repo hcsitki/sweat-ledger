@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, Alert, TouchableOpacity, Modal, FlatList } from 'react-native';
 import { useLocalSearchParams, useNavigation, router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { getWorkoutDetail, getBestEpley1RMBeforeSession, deleteWorkout } from '@/db/queries/history';
+import { getWorkoutDetail, getBestEpley1RMBeforeSession, deleteWorkout, updateSessionTemplate } from '@/db/queries/history';
 import { deleteSessionFromCloud } from '@/lib/sync';
 import { calculateEpley1RM, formatDuration } from '@/utils/calculations';
 import {
@@ -12,7 +12,7 @@ import {
 import type { WorkoutHistoryDetail, WorkoutHistoryExercise } from '@/db/types';
 import { useWorkoutStore } from '@/store/workout';
 import { startWorkoutFromSession } from '@/utils/start-from-session';
-import { saveWorkoutAsTemplate } from '@/db/queries/templates';
+import { getTemplates, saveWorkoutAsTemplate } from '@/db/queries/templates';
 
 interface EnrichedExercise {
   workout_exercise_id: number;
@@ -20,6 +20,8 @@ interface EnrichedExercise {
   is_bodyweight: number;
   sets: EnrichedSet[];
 }
+
+type TemplatePick = { id: number | null; name: string };
 
 function enrichExercises(
   exercises: WorkoutHistoryExercise[],
@@ -30,9 +32,6 @@ function enrichExercises(
     let bestSetIndex = -1;
     let bestEpley = 0;
 
-    // Single pass: compute 1RM, track best set, and build enriched sets.
-    // Bodyweight-only sets (weight_lbs null/0) yield 1RM of 0 and will never
-    // produce a PR badge — Epley requires a meaningful weight value.
     const sets: EnrichedSet[] = ex.sets.map((s, idx) => {
       const e1rm = calculateEpley1RM(s.weight_lbs ?? 0, s.reps ?? 0);
       if (e1rm !== null && e1rm > bestEpley) {
@@ -64,6 +63,8 @@ export default function WorkoutDetailScreen() {
   const [detail, setDetail] = useState<WorkoutHistoryDetail | null>(null);
   const [enriched, setEnriched] = useState<EnrichedExercise[]>([]);
   const [loading, setLoading] = useState(true);
+  const [templatePickerVisible, setTemplatePickerVisible] = useState(false);
+  const [pickerTemplates, setPickerTemplates] = useState<TemplatePick[]>([]);
 
   function handleDelete() {
     Alert.alert(
@@ -132,6 +133,24 @@ export default function WorkoutDetailScreen() {
     );
   }
 
+  async function handleOpenTemplatePicker() {
+    const templates = await getTemplates(db);
+    setPickerTemplates([
+      { id: null, name: 'None' },
+      ...templates.map((t) => ({ id: t.id, name: t.name })),
+    ]);
+    setTemplatePickerVisible(true);
+  }
+
+  async function handleSelectTemplate(templateId: number | null) {
+    await updateSessionTemplate(db, Number(id), templateId);
+    const newName = templateId == null
+      ? null
+      : pickerTemplates.find((t) => t.id === templateId)?.name ?? null;
+    setDetail((prev) => prev ? { ...prev, template_id: templateId, template_name: newName } : prev);
+    setTemplatePickerVisible(false);
+  }
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
@@ -191,51 +210,95 @@ export default function WorkoutDetailScreen() {
   });
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-      <View style={styles.headerCard}>
-        <Text style={styles.workoutName}>{detail.name}</Text>
-        <Text style={styles.date}>{date}</Text>
-        <View style={styles.statsRow}>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{formatDuration(detail.duration_seconds)}</Text>
-            <Text style={styles.statLabel}>Duration</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{totalTonnage.toLocaleString()} lb</Text>
-            <Text style={styles.statLabel}>Total tonnage</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{detail.exercises.length}</Text>
-            <Text style={styles.statLabel}>Exercises</Text>
+    <>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        <View style={styles.headerCard}>
+          <Text style={styles.workoutName}>{detail.name}</Text>
+          <Text style={styles.date}>{date}</Text>
+          <TouchableOpacity style={styles.templateRow} onPress={handleOpenTemplatePicker}>
+            <Text style={styles.templateLabel}>Template</Text>
+            <Text style={[styles.templateValue, !detail.template_name && styles.templateValueEmpty]}>
+              {detail.template_name ?? 'None'}
+            </Text>
+          </TouchableOpacity>
+          <View style={styles.statsRow}>
+            <View style={styles.stat}>
+              <Text style={styles.statValue}>{formatDuration(detail.duration_seconds)}</Text>
+              <Text style={styles.statLabel}>Duration</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.stat}>
+              <Text style={styles.statValue}>{totalTonnage.toLocaleString()} lb</Text>
+              <Text style={styles.statLabel}>Total tonnage</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.stat}>
+              <Text style={styles.statValue}>{detail.exercises.length}</Text>
+              <Text style={styles.statLabel}>Exercises</Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      {enriched.map((ex) => (
-        <WorkoutDetailExercise
-          key={ex.workout_exercise_id}
-          exercise_name={ex.exercise_name}
-          is_bodyweight={ex.is_bodyweight}
-          sets={ex.sets}
-        />
-      ))}
-      <View style={styles.actionRow}>
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.actionBtnSecondary]}
-          onPress={handleSaveAsTemplate}
-        >
-          <Text style={styles.actionBtnSecondaryText}>Save as Template</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionBtn, styles.actionBtnPrimary]}
-          onPress={handlePerformAgain}
-        >
-          <Text style={styles.actionBtnPrimaryText}>Perform Again</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+        {enriched.map((ex) => (
+          <WorkoutDetailExercise
+            key={ex.workout_exercise_id}
+            exercise_name={ex.exercise_name}
+            is_bodyweight={ex.is_bodyweight}
+            sets={ex.sets}
+          />
+        ))}
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.actionBtnSecondary]}
+            onPress={handleSaveAsTemplate}
+          >
+            <Text style={styles.actionBtnSecondaryText}>Save as Template</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.actionBtnPrimary]}
+            onPress={handlePerformAgain}
+          >
+            <Text style={styles.actionBtnPrimaryText}>Perform Again</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      <Modal
+        visible={templatePickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setTemplatePickerVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Assign Template</Text>
+              <TouchableOpacity onPress={() => setTemplatePickerVisible(false)}>
+                <Text style={styles.modalCancel}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={pickerTemplates}
+              keyExtractor={(item) => String(item.id ?? 'none')}
+              renderItem={({ item }) => {
+                const isSelected = item.id === detail.template_id;
+                return (
+                  <TouchableOpacity
+                    style={styles.pickerItem}
+                    onPress={() => handleSelectTemplate(item.id)}
+                  >
+                    <Text style={[styles.pickerItemText, isSelected && styles.pickerItemTextSelected]}>
+                      {item.name}
+                    </Text>
+                    {isSelected && <Text style={styles.pickerCheck}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -256,10 +319,22 @@ const styles = StyleSheet.create({
   workoutName: { fontSize: 22, fontWeight: '700', color: '#FFFFFF' },
   date: { fontSize: 14, color: '#8E8E93' },
 
+  templateRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#38383A',
+    marginTop: 2,
+  },
+  templateLabel: { fontSize: 13, color: '#8E8E93' },
+  templateValue: { fontSize: 13, color: '#007AFF', fontWeight: '500' },
+  templateValueEmpty: { color: '#636366' },
+
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#38383A',
@@ -279,4 +354,39 @@ const styles = StyleSheet.create({
   },
   actionBtnPrimaryText: { color: '#fff', fontWeight: '600', fontSize: 16 },
   actionBtnSecondaryText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16 },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#1C1C1E',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: '60%',
+    paddingBottom: 34,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#38383A',
+  },
+  modalTitle: { fontSize: 17, fontWeight: '600', color: '#FFFFFF' },
+  modalCancel: { fontSize: 16, color: '#007AFF' },
+  pickerItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#38383A',
+  },
+  pickerItemText: { fontSize: 16, color: '#FFFFFF' },
+  pickerItemTextSelected: { color: '#007AFF' },
+  pickerCheck: { fontSize: 16, color: '#007AFF', fontWeight: '600' },
 });
