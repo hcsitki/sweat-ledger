@@ -132,6 +132,18 @@ export async function deleteTemplate(db: SQLiteDatabase, id: number): Promise<vo
   await db.runAsync('DELETE FROM workout_templates WHERE id = ?', id);
 }
 
+export async function updateTemplateExerciseOrderIndex(
+  db: SQLiteDatabase,
+  templateExerciseId: number,
+  orderIndex: number
+): Promise<void> {
+  await db.runAsync(
+    'UPDATE template_exercises SET order_index = ? WHERE id = ?',
+    orderIndex,
+    templateExerciseId
+  );
+}
+
 export async function deleteTemplateSet(db: SQLiteDatabase, id: number): Promise<void> {
   await db.runAsync('DELETE FROM template_sets WHERE id = ?', id);
 }

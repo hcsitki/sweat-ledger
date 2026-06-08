@@ -1,15 +1,24 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   TextInput,
   TouchableOpacity,
-  FlatList,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  type SharedValue,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams, useFocusEffect, type Href } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -21,10 +30,15 @@ import {
   getTemplateWithDetails,
   updateTemplateName,
   updateTemplateSetReps,
+  updateTemplateExerciseOrderIndex,
   removeExerciseFromTemplate,
   deleteTemplateSet,
 } from '@/db/queries/templates';
 import { getLastSessionRepsForExercise } from '@/db/queries/templates';
+
+// Collapsed card height (44px) + marginBottom (12px)
+const DRAG_ITEM_HEIGHT = 56;
+const SPRING_CFG = { damping: 20, stiffness: 250 };
 
 interface LocalSet {
   id: number | null;
@@ -33,7 +47,7 @@ interface LocalSet {
 }
 
 interface LocalExercise {
-  key: string; // stable identity for FlatList
+  key: string; // stable identity for list
   templateExerciseId: number | null;
   exerciseId: number;
   exerciseName: string;
@@ -56,6 +70,13 @@ export default function TemplateCreateScreen() {
   const [exercises, setExercises] = useState<LocalExercise[]>([]);
   const [saving, setSaving] = useState(false);
   const loadedRef = useRef(false);
+
+  // Drag state
+  const [isDragging, setIsDragging] = useState(false);
+  const frozenOrder = useRef<LocalExercise[]>([]);
+  const draggingIndexSV = useSharedValue(-1);
+  const hoveredIndexSV = useSharedValue(-1);
+  const floatY = useSharedValue(0);
 
   const takePendingExercise = useTemplateEditorStore((s) => s.takePendingExercise);
 
@@ -166,6 +187,38 @@ export default function TemplateCreateScreen() {
     ]);
   };
 
+  const startDrag = useCallback(() => {
+    frozenOrder.current = [...exercises];
+    setIsDragging(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  }, [exercises]);
+
+  const endDrag = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      draggingIndexSV.value = -1;
+      hoveredIndexSV.value = -1;
+      floatY.value = 0;
+      const newOrder = [...frozenOrder.current];
+      const [moved] = newOrder.splice(fromIndex, 1);
+      newOrder.splice(toIndex, 0, moved);
+      setIsDragging(false);
+      setExercises(newOrder);
+    },
+    [draggingIndexSV, hoveredIndexSV, floatY]
+  );
+
+  // Stable refs so gesture worklets always call the latest version
+  const startDragRef = useRef(startDrag);
+  startDragRef.current = startDrag;
+  const endDragRef = useRef(endDrag);
+  endDragRef.current = endDrag;
+
+  const stableStartDrag = useCallback(() => startDragRef.current(), []);
+  const stableEndDrag = useCallback(
+    (from: number, to: number) => endDragRef.current(from, to),
+    []
+  );
+
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Name required', 'Please enter a template name.');
@@ -201,6 +254,8 @@ export default function TemplateCreateScreen() {
           if (teId == null) {
             const result = await addExerciseToTemplate(db, tid, ex.exerciseId, i);
             teId = result.id;
+          } else {
+            await updateTemplateExerciseOrderIndex(db, teId, i);
           }
 
           // Determine which set IDs existed before (from DB state)
@@ -257,89 +312,216 @@ export default function TemplateCreateScreen() {
     }
   };
 
+  const renderOrder = isDragging ? frozenOrder.current : exercises;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <FlatList
-          data={exercises}
-          keyExtractor={(item) => item.key}
+        <ScrollView
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
-          ListHeaderComponent={
-            <View style={styles.header}>
-              <Text style={styles.label}>Template Name</Text>
-              <TextInput
-                style={styles.nameInput}
-                value={name}
-                onChangeText={setName}
-                placeholder="e.g. Push Day"
-                placeholderTextColor="#636366"
-                autoFocus={!isEditMode}
-                returnKeyType="done"
+        >
+          <View style={styles.header}>
+            <Text style={styles.label}>Template Name</Text>
+            <TextInput
+              style={styles.nameInput}
+              value={name}
+              onChangeText={setName}
+              placeholder="e.g. Push Day"
+              placeholderTextColor="#636366"
+              autoFocus={!isEditMode}
+              returnKeyType="done"
+            />
+          </View>
+
+          <View>
+            {renderOrder.map((ex, idx) => (
+              <TemplateDraggableItem
+                key={ex.key}
+                exercise={ex}
+                cardIndex={idx}
+                totalCount={renderOrder.length}
+                draggingIndexSV={draggingIndexSV}
+                hoveredIndexSV={hoveredIndexSV}
+                floatY={floatY}
+                isDragging={isDragging}
+                onDragStart={stableStartDrag}
+                onDragEnd={stableEndDrag}
+                onAddSet={() => handleAddSet(idx)}
+                onRemoveSet={(sIdx) => handleRemoveSet(idx, sIdx)}
+                onUpdateReps={(sIdx, val) => handleUpdateReps(idx, sIdx, val)}
+                onRemoveExercise={() => handleRemoveExercise(idx)}
               />
-            </View>
-          }
-          renderItem={({ item: ex, index: exIdx }) => (
-            <View style={styles.exerciseCard}>
-              <View style={styles.exerciseHeader}>
-                <Text style={styles.exerciseName}>{ex.exerciseName}</Text>
-                <TouchableOpacity onPress={() => handleRemoveExercise(exIdx)}>
-                  <Text style={styles.removeText}>Remove</Text>
-                </TouchableOpacity>
-              </View>
+            ))}
+          </View>
 
-              <View style={styles.setHeaderRow}>
-                <Text style={[styles.setCol, styles.setColNum]}>Set</Text>
-                <Text style={[styles.setCol, styles.setColReps]}>Target Reps</Text>
-                <View style={styles.setColAction} />
-              </View>
-
-              {ex.sets.map((s, sIdx) => (
-                <View key={sIdx} style={styles.setRow}>
-                  <Text style={[styles.setCol, styles.setColNum]}>{s.setNumber}</Text>
-                  <TextInput
-                    style={[styles.setCol, styles.setColReps, styles.repsInput]}
-                    value={s.targetReps}
-                    onChangeText={(v) => handleUpdateReps(exIdx, sIdx, v.replace(/[^0-9]/g, ''))}
-                    keyboardType="number-pad"
-                    placeholder="—"
-                    placeholderTextColor="#636366"
-                    maxLength={3}
-                  />
-                  <TouchableOpacity
-                    style={styles.setColAction}
-                    onPress={() => handleRemoveSet(exIdx, sIdx)}
-                  >
-                    <Text style={styles.removeSetText}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-
-              <TouchableOpacity style={styles.addSetBtn} onPress={() => handleAddSet(exIdx)}>
-                <Text style={styles.addSetBtnText}>+ Add Set</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          ListFooterComponent={
-            <View style={styles.footer}>
-              <TouchableOpacity style={styles.addExerciseBtn} onPress={handleAddExercise}>
-                <Text style={styles.addExerciseBtnText}>+ Add Exercise</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-                onPress={handleSave}
-                disabled={saving}
-              >
-                <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save Template'}</Text>
-              </TouchableOpacity>
-            </View>
-          }
-        />
+          <View style={styles.footer}>
+            <TouchableOpacity style={styles.addExerciseBtn} onPress={handleAddExercise}>
+              <Text style={styles.addExerciseBtnText}>+ Add Exercise</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              <Text style={styles.saveBtnText}>{saving ? 'Saving…' : 'Save Template'}</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+interface DraggableItemProps {
+  exercise: LocalExercise;
+  cardIndex: number;
+  totalCount: number;
+  draggingIndexSV: SharedValue<number>;
+  hoveredIndexSV: SharedValue<number>;
+  floatY: SharedValue<number>;
+  isDragging: boolean;
+  onDragStart: () => void;
+  onDragEnd: (from: number, to: number) => void;
+  onAddSet: () => void;
+  onRemoveSet: (setIndex: number) => void;
+  onUpdateReps: (setIndex: number, value: string) => void;
+  onRemoveExercise: () => void;
+}
+
+function TemplateDraggableItem({
+  exercise: ex,
+  cardIndex,
+  totalCount,
+  draggingIndexSV,
+  hoveredIndexSV,
+  floatY,
+  isDragging,
+  onDragStart,
+  onDragEnd,
+  onAddSet,
+  onRemoveSet,
+  onUpdateReps,
+  onRemoveExercise,
+}: DraggableItemProps) {
+  const gesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activateAfterLongPress(200)
+        .onStart(() => {
+          'worklet';
+          if (draggingIndexSV.value !== -1) return;
+          draggingIndexSV.value = cardIndex;
+          hoveredIndexSV.value = cardIndex;
+          floatY.value = 0;
+          runOnJS(onDragStart)();
+        })
+        .onUpdate((e) => {
+          'worklet';
+          if (draggingIndexSV.value !== cardIndex) return;
+          floatY.value = e.translationY;
+          const rawIdx = cardIndex + e.translationY / DRAG_ITEM_HEIGHT;
+          hoveredIndexSV.value = Math.max(0, Math.min(totalCount - 1, Math.round(rawIdx)));
+        })
+        .onEnd(() => {
+          'worklet';
+          if (draggingIndexSV.value !== cardIndex) return;
+          const from = draggingIndexSV.value;
+          const to = hoveredIndexSV.value;
+          runOnJS(onDragEnd)(from, to);
+        }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cardIndex, totalCount]
+  );
+
+  const animStyle = useAnimatedStyle(() => {
+    const activeDragIdx = draggingIndexSV.value;
+
+    if (activeDragIdx === -1) {
+      return { transform: [{ translateY: withSpring(0, SPRING_CFG) }] };
+    }
+
+    if (activeDragIdx === cardIndex) {
+      return {
+        transform: [{ translateY: floatY.value }],
+        zIndex: 1000,
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOpacity: 0.35,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 5 },
+        opacity: 0.93,
+      };
+    }
+
+    const hovered = hoveredIndexSV.value;
+    let shift = 0;
+    if (cardIndex > activeDragIdx && cardIndex <= hovered) shift = -1;
+    else if (cardIndex < activeDragIdx && cardIndex >= hovered) shift = 1;
+
+    return {
+      transform: [{ translateY: withSpring(shift * DRAG_ITEM_HEIGHT, SPRING_CFG) }],
+    };
+  });
+
+  return (
+    <Animated.View style={[animStyle, { marginBottom: isDragging ? 12 : 16 }]}>
+      <View style={[styles.exerciseCard, isDragging && styles.exerciseCardCollapsed]}>
+        <View style={styles.exerciseHeader}>
+          <GestureDetector gesture={gesture}>
+            <View style={styles.dragHandle}>
+              <Text style={styles.dragHandleIcon}>☰</Text>
+            </View>
+          </GestureDetector>
+          <Text style={styles.exerciseName} numberOfLines={1}>
+            {ex.exerciseName}
+          </Text>
+          {!isDragging && (
+            <TouchableOpacity onPress={onRemoveExercise}>
+              <Text style={styles.removeText}>Remove</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {!isDragging && (
+          <>
+            <View style={styles.setHeaderRow}>
+              <Text style={[styles.setCol, styles.setColNum]}>Set</Text>
+              <Text style={[styles.setCol, styles.setColReps]}>Target Reps</Text>
+              <View style={styles.setColAction} />
+            </View>
+
+            {ex.sets.map((s, sIdx) => (
+              <View key={sIdx} style={styles.setRow}>
+                <Text style={[styles.setCol, styles.setColNum]}>{s.setNumber}</Text>
+                <TextInput
+                  style={[styles.setCol, styles.setColReps, styles.repsInput]}
+                  value={s.targetReps}
+                  onChangeText={(v) => onUpdateReps(sIdx, v.replace(/[^0-9]/g, ''))}
+                  keyboardType="number-pad"
+                  placeholder="—"
+                  placeholderTextColor="#636366"
+                  maxLength={3}
+                />
+                <TouchableOpacity
+                  style={styles.setColAction}
+                  onPress={() => onRemoveSet(sIdx)}
+                >
+                  <Text style={styles.removeSetText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            <TouchableOpacity style={styles.addSetBtn} onPress={onAddSet}>
+              <Text style={styles.addSetBtnText}>+ Add Set</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    </Animated.View>
   );
 }
 
@@ -348,7 +530,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   listContent: { padding: 16, gap: 16 },
 
-  header: { gap: 6, marginBottom: 4 },
+  header: { gap: 6 },
   label: { fontSize: 13, fontWeight: '600', color: '#8E8E93', textTransform: 'uppercase' },
   nameInput: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -369,10 +551,27 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: '#38383A',
   },
+  exerciseCardCollapsed: {
+    paddingTop: 0,
+    paddingBottom: 0,
+    height: 44,
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
   exerciseHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
+  },
+  dragHandle: {
+    width: 28,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dragHandleIcon: {
+    fontSize: 16,
+    color: '#636366',
   },
   exerciseName: { fontSize: 16, fontWeight: '600', flex: 1, color: '#007AFF' },
   removeText: { color: '#FF3B30', fontSize: 14 },
@@ -399,7 +598,7 @@ const styles = StyleSheet.create({
   addSetBtn: { marginTop: 4 },
   addSetBtnText: { color: '#007AFF', fontSize: 14, fontWeight: '500' },
 
-  footer: { gap: 12, marginTop: 8 },
+  footer: { gap: 12 },
   addExerciseBtn: {
     borderWidth: 1,
     borderColor: '#38383A',
